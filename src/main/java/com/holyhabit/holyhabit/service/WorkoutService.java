@@ -18,6 +18,7 @@ public class WorkoutService {
     private final WorkoutSetRepository workoutSetRepository;
     private final RoutineExerciseRepository routineExerciseRepository;
     private final UserRepository userRepository;
+    private final CurrencyService currencyService; // 추가
 
     // 운동 기록 저장
     @Transactional
@@ -48,10 +49,14 @@ public class WorkoutService {
             workoutSetRepository.save(workoutSet);
         }
 
+        // 드롭세트 제외한 일반 세트 수 카운트 → 신발코인 지급
+        int normalSetCount = (int) sets.stream().filter(s -> !s.isDropset()).count();
+        currencyService.grantShoeCoin(userId, normalSetCount, log.getId());
+
         return log;
     }
 
-    // 최근 운동 기록 조회 (운동기록화면 하단 최근 기록)
+    // 최근 운동 기록 조회
     @Transactional(readOnly = true)
     public List<WorkoutSet> getRecentSets(Long userId, Long routineExerciseId) {
         return workoutLogRepository
@@ -60,6 +65,5 @@ public class WorkoutService {
                 .orElse(List.of());
     }
 
-    // 세트 요청 record
     public record SetRequest(BigDecimal weightKg, Integer reps, boolean isDropset) {}
 }
