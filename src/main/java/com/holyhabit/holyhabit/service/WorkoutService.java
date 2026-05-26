@@ -18,15 +18,20 @@ public class WorkoutService {
     private final WorkoutSetRepository workoutSetRepository;
     private final RoutineExerciseRepository routineExerciseRepository;
     private final UserRepository userRepository;
-    private final CurrencyService currencyService; // 추가
+    private final CurrencyService currencyService;
 
-    // 운동 기록 저장
     @Transactional
-    public WorkoutLog saveWorkoutLog(Long userId, Long routineExerciseId, List<SetRequest> sets) {
+    public SaveResult saveWorkoutLog(
+            Long userId,
+            Long routineExerciseId,
+            List<SetRequest> sets,
+            boolean grantCoin
+    ) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
 
-        RoutineExercise routineExercise = routineExerciseRepository.findById(routineExerciseId)
+        RoutineExercise routineExercise = routineExerciseRepository
+                .findById(routineExerciseId)
                 .orElseThrow(() -> new RuntimeException("루틴 운동을 찾을 수 없습니다."));
 
         WorkoutLog log = WorkoutLog.builder()
@@ -36,34 +41,34 @@ public class WorkoutService {
                 .build();
         workoutLogRepository.save(log);
 
-        // 세트 저장
         for (int i = 0; i < sets.size(); i++) {
             SetRequest set = sets.get(i);
-            WorkoutSet workoutSet = WorkoutSet.builder()
+            workoutSetRepository.save(WorkoutSet.builder()
                     .workoutLog(log)
                     .setNumber(i + 1)
                     .weightKg(set.weightKg())
                     .reps(set.reps())
                     .isDropset(set.isDropset())
-                    .build();
-            workoutSetRepository.save(workoutSet);
+                    .build());
         }
 
-        // 드롭세트 제외한 일반 세트 수 카운트 → 신발코인 지급
-        int normalSetCount = (int) sets.stream().filter(s -> !s.isDropset()).count();
-        currencyService.grantShoeCoin(userId, normalSetCount, log.getId());
+        int grantedShoeCoin = 0;
+        if (grantCoin) {
+            // 드롭세트 제외 + reps > 0 인 세트만 카운트 (빈 세트 제외)
+            int normalSetCount = (int) sets.stream()
+                    .filter(s -> !s.isDropset()
+                            && s.reps() != null
+                            && s.reps() > 0)
+                    .count();
+            if (normalSetCount > 0) {
+                grantedShoeCoin = currencyService.grantShoeCoin(
+                        userId, normalSetCount, log.getId(), routineExerciseId);
+            }
+        }
 
-        return log;
-    }
-
-    // 최근 운동 기록 조회
-    @Transactional(readOnly = true)
-    public List<WorkoutSet> getRecentSets(Long userId, Long routineExerciseId) {
-        return workoutLogRepository
-                .findTopByUserIdAndRoutineExerciseIdOrderByLoggedAtDesc(userId, routineExerciseId)
-                .map(log -> workoutSetRepository.findAllByWorkoutLogIdOrderBySetNumber(log.getId()))
-                .orElse(List.of());
+        return new SaveResult(log, grantedShoeCoin);
     }
 
     public record SetRequest(BigDecimal weightKg, Integer reps, boolean isDropset) {}
+    public record SaveResult(WorkoutLog log, int grantedShoeCoin) {}
 }
