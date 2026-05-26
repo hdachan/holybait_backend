@@ -25,9 +25,10 @@ public class RoutineExercise {
     private Exercise exercise;
 
     @Column(nullable = false)
-    private int orderIndex; // 순서 (드래그로 변경)
+    private int orderIndex;
 
-    private Integer supersetGroup; // 같은 숫자면 슈퍼세트, null이면 일반
+    // null = 슈퍼세트 아님, 같은 숫자 = 같은 슈퍼세트 그룹
+    private Integer supersetGroup;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -37,11 +38,9 @@ public class RoutineExercise {
         this.createdAt = LocalDateTime.now();
     }
 
-    public void updateOrder(int orderIndex) {
+    // 슈퍼세트 해제/순서 변경 시 workout 데이터 유지하면서 메타 정보만 업데이트
+    public void updateOrderAndSuperset(int orderIndex, Integer supersetGroup) {
         this.orderIndex = orderIndex;
-    }
-
-    public void updateSupersetGroup(Integer supersetGroup) {
         this.supersetGroup = supersetGroup;
     }
 }

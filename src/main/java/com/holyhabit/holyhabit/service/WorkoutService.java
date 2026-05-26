@@ -7,12 +7,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class WorkoutService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final WorkoutLogRepository workoutLogRepository;
     private final WorkoutSetRepository workoutSetRepository;
@@ -34,12 +38,27 @@ public class WorkoutService {
                 .findById(routineExerciseId)
                 .orElseThrow(() -> new RuntimeException("루틴 운동을 찾을 수 없습니다."));
 
-        WorkoutLog log = WorkoutLog.builder()
-                .user(user)
-                .routineExercise(routineExercise)
-                .loggedAt(LocalDateTime.now())
-                .build();
-        workoutLogRepository.save(log);
+        // 오늘 이미 저장한 log 가 있으면 재사용, 없으면 새로 생성
+        LocalDate todayKst = LocalDate.now(KST);
+        LocalDateTime from = todayKst.atStartOfDay();
+        LocalDateTime to = todayKst.plusDays(1).atStartOfDay();
+
+        WorkoutLog log = workoutLogRepository
+                .findTodayLog(userId, routineExerciseId, from, to)
+                .orElse(null);
+
+        if (log != null) {
+            // 기존 오늘 log → 세트 전부 삭제 후 새로 저장 (덮어쓰기)
+            workoutSetRepository.deleteAllByWorkoutLogId(log.getId());
+        } else {
+            // 새 log 생성
+            log = WorkoutLog.builder()
+                    .user(user)
+                    .routineExercise(routineExercise)
+                    .loggedAt(LocalDateTime.now())
+                    .build();
+            workoutLogRepository.save(log);
+        }
 
         for (int i = 0; i < sets.size(); i++) {
             SetRequest set = sets.get(i);
@@ -54,7 +73,6 @@ public class WorkoutService {
 
         int grantedShoeCoin = 0;
         if (grantCoin) {
-            // 드롭세트 제외 + reps > 0 인 세트만 카운트 (빈 세트 제외)
             int normalSetCount = (int) sets.stream()
                     .filter(s -> !s.isDropset()
                             && s.reps() != null
