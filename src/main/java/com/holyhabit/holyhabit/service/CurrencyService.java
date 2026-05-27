@@ -40,8 +40,6 @@ public class CurrencyService {
     }
 
     // 신발 코인 지급
-    // currentSetCount: 현재 저장된 총 세트 수 (오늘 이 운동의 전체 세트)
-    // routineExerciseId: 어느 운동인지 (오늘 이미 받은 세트 수 계산용)
     @Transactional
     public int grantShoeCoin(Long userId, int currentSetCount,
                               Long workoutLogId, Long routineExerciseId) {
@@ -116,4 +114,49 @@ public class CurrencyService {
         return userCurrencyRepository.save(UserCurrency.builder()
                 .user(user).gold(0).shoeCoin(0).build());
     }
+
+
+    // 신발코인 소모 (모험 입장 시)
+    @Transactional
+    public void spendShoeCoin(Long userId, int amount) {
+        UserCurrency currency = userCurrencyRepository
+                .findByUserIdWithLock(userId)
+                .orElseGet(() -> createCurrency(userId));
+
+        if (currency.getShoeCoin() < amount) {
+            throw new RuntimeException("신발코인이 부족합니다.");
+        }
+
+        // shoeCoin 차감 — 음수로 currency_logs 기록
+        // UserCurrency 에 spendShoeCoin 메서드 추가 필요
+        currency.spendShoeCoin(amount);
+
+        CurrencyLog log = CurrencyLog.builder()
+                .user(currency.getUser())
+                .currencyType(CurrencyType.SHOE_COIN)
+                .amount(-amount)           // 음수 = 소비
+                .source(CurrencySource.SPEND)
+                .build();
+        currencyLogRepository.save(log);
+    }
+
+
+    @Transactional
+    public void grantGold(Long userId, int amount, CurrencySource source, Long referenceId) {
+        UserCurrency currency = userCurrencyRepository
+                .findByUserIdWithLock(userId)
+                .orElseGet(() -> createCurrency(userId));
+
+        currency.addGold(amount);
+
+        CurrencyLog log = CurrencyLog.builder()
+                .user(currency.getUser())
+                .currencyType(CurrencyType.GOLD)
+                .amount(amount)
+                .source(source)
+                .referenceId(referenceId)
+                .build();
+        currencyLogRepository.save(log);
+    }
+
 }

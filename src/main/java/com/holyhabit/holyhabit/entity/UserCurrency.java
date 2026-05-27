@@ -52,4 +52,8 @@ public class UserCurrency {
     public void addShoeCoin(int amount) {
         this.shoeCoin = Math.max(0, this.shoeCoin + amount);
     }
+
+    public void spendShoeCoin(int amount) {
+        this.shoeCoin = Math.max(0, this.shoeCoin - amount);
+    }
 }
