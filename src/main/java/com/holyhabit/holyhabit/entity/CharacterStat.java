@@ -4,7 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "character_stats")
+@Table(name = "character_stats",
+       uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "character_id"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -15,9 +16,13 @@ public class CharacterStat {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "character_id", nullable = false)
+    private GameCharacter character;   // java.lang.Character 충돌 방지
 
     @Column(nullable = false)
     private int level;
@@ -32,21 +37,22 @@ public class CharacterStat {
     private int def;
 
     @Column(nullable = false)
-    private int hp;       // 현재 HP (전투 시 max_hp 로 시작)
+    private int hp;
 
     @Column(nullable = false)
     private int maxHp;
 
-    // 더블어택 확률 (0.0 ~ 1.0)
     @Column(nullable = false)
     private double doubleAttackChance;
 
-    // ── 레벨업 공식: requiredExp = level * 100 ──
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean isActive = false;
+
     public int getRequiredExp() {
         return level * 100;
     }
 
-    // 경험치 추가 + 레벨업 처리
     public int addExpAndLevelUp(int gainExp) {
         this.exp += gainExp;
         int levelsGained = 0;
@@ -56,9 +62,12 @@ public class CharacterStat {
             this.atk += 2;
             this.def += 1;
             this.maxHp += 10;
-            this.hp = this.maxHp; // 레벨업 시 HP 회복
+            this.hp = this.maxHp;
             levelsGained++;
         }
         return levelsGained;
     }
+
+    public void activate() { this.isActive = true; }
+    public void deactivate() { this.isActive = false; }
 }

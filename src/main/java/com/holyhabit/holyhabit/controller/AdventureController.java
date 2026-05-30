@@ -3,7 +3,6 @@ package com.holyhabit.holyhabit.controller;
 import com.holyhabit.holyhabit.controller.dto.AdventureConfirmResponse;
 import com.holyhabit.holyhabit.controller.dto.AdventureStartResponse;
 import com.holyhabit.holyhabit.controller.dto.CharacterStatResponse;
-import com.holyhabit.holyhabit.entity.CharacterStat;
 import com.holyhabit.holyhabit.entity.Stage;
 import com.holyhabit.holyhabit.security.CustomUserDetails;
 import com.holyhabit.holyhabit.service.AdventureService;
@@ -21,40 +20,54 @@ public class AdventureController {
 
     private final AdventureService adventureService;
 
-    // 스테이지 목록 조회
+    // 스테이지 목록
     @GetMapping("/stages")
     public ResponseEntity<List<Stage>> getStages(
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
+            @AuthenticationPrincipal CustomUserDetails u) {
         return ResponseEntity.ok(adventureService.getStages());
     }
 
-    // 캐릭터 스탯 조회 — DTO 반환 (Lazy 프록시 직렬화 오류 방지)
-    @GetMapping("/character")
-    public ResponseEntity<CharacterStatResponse> getCharacterStat(
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
-        CharacterStat stat = adventureService.getOrCreateStat(userDetails.getUserId());
-        return ResponseEntity.ok(new CharacterStatResponse(stat));
+    // 내 모든 캐릭터 목록
+    @GetMapping("/characters")
+    public ResponseEntity<List<CharacterStatResponse>> getMyCharacters(
+            @AuthenticationPrincipal CustomUserDetails u) {
+        return ResponseEntity.ok(
+                adventureService.getAllStats(u.getUserId()).stream()
+                        .map(CharacterStatResponse::new)
+                        .toList());
     }
 
-    // 모험 시작 — 신발코인 소모 + 배틀 계산
+    // 현재 활성 캐릭터
+    @GetMapping("/character")
+    public ResponseEntity<CharacterStatResponse> getActiveCharacter(
+            @AuthenticationPrincipal CustomUserDetails u) {
+        return ResponseEntity.ok(
+                new CharacterStatResponse(adventureService.getActiveStat(u.getUserId())));
+    }
+
+    // 캐릭터 변경 (statId = character_stats.id)
+    @PostMapping("/character/select")
+    public ResponseEntity<CharacterStatResponse> selectCharacter(
+            @RequestParam Long statId,
+            @AuthenticationPrincipal CustomUserDetails u) {
+        return ResponseEntity.ok(
+                new CharacterStatResponse(
+                        adventureService.selectCharacter(u.getUserId(), statId)));
+    }
+
+    // 모험 시작
     @PostMapping("/start")
     public ResponseEntity<AdventureStartResponse> startBattle(
             @RequestParam Long stageId,
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
-        return ResponseEntity.ok(
-                adventureService.startBattle(userDetails.getUserId(), stageId));
+            @AuthenticationPrincipal CustomUserDetails u) {
+        return ResponseEntity.ok(adventureService.startBattle(u.getUserId(), stageId));
     }
 
-    // 보상 확인 — 마지막 버튼 눌러야 보상 지급
+    // 보상 확인
     @PostMapping("/{battleId}/confirm")
     public ResponseEntity<AdventureConfirmResponse> confirmRewards(
             @PathVariable Long battleId,
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
-        return ResponseEntity.ok(
-                adventureService.confirmRewards(userDetails.getUserId(), battleId));
+            @AuthenticationPrincipal CustomUserDetails u) {
+        return ResponseEntity.ok(adventureService.confirmRewards(u.getUserId(), battleId));
     }
 }
