@@ -2,6 +2,7 @@ package com.holyhabit.holyhabit.service;
 
 import com.holyhabit.holyhabit.controller.dto.AdventureStartResponse;
 import com.holyhabit.holyhabit.controller.dto.AdventureConfirmResponse;
+import com.holyhabit.holyhabit.controller.dto.PendingBattleResponse;
 import com.holyhabit.holyhabit.entity.*;
 import com.holyhabit.holyhabit.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 @Slf4j
@@ -34,8 +36,6 @@ public class AdventureService {
         return stageRepository.findAllByOrderByIdAsc();
     }
 
-    // 유저의 모든 캐릭터 조회
-    // 없으면 characters 테이블의 모든 캐릭터 stat 한꺼번에 생성 (첫 번째가 active)
     @Transactional
     public List<CharacterStat> getAllStats(Long userId) {
         List<CharacterStat> stats = characterStatRepository.findAllByUserId(userId);
@@ -43,24 +43,18 @@ public class AdventureService {
             try {
                 stats = createAllDefaultStats(userId);
             } catch (Exception e) {
-                // 동시 요청으로 이미 생성된 경우 다시 조회
                 stats = characterStatRepository.findAllByUserId(userId);
             }
         }
         return stats;
     }
 
-    // 현재 활성 캐릭터
     @Transactional
     public CharacterStat getActiveStat(Long userId) {
         return characterStatRepository.findByUserIdAndIsActiveTrue(userId)
-                .orElseGet(() -> {
-                    List<CharacterStat> all = getAllStats(userId);
-                    return all.get(0);
-                });
+                .orElseGet(() -> getAllStats(userId).get(0));
     }
 
-    // 캐릭터 변경
     @Transactional
     public CharacterStat selectCharacter(Long userId, Long characterStatId) {
         CharacterStat target = characterStatRepository.findById(characterStatId)
@@ -71,6 +65,30 @@ public class AdventureService {
         characterStatRepository.deactivateAll(userId);
         target.activate();
         return target;
+    }
+
+    // 미수령 배틀 조회 — 맵 화면 진입 시 체크
+    @Transactional(readOnly = true)
+    public Optional<PendingBattleResponse> getPendingBattle(Long userId) {
+        return battleRepository
+                .findTopByUserIdAndRewardsClaimedFalseOrderByCreatedAtDesc(userId)
+                .map(battle -> {
+                    Monster monster = battle.getMonster();
+                    CharacterStat stat = getActiveStat(userId);
+                    List<BattleLog> logs =
+                            battleLogRepository.findAllByBattleIdOrderByTurnAsc(battle.getId());
+                    return new PendingBattleResponse(battle, monster, stat, logs);
+                });
+    }
+
+    // 배틀 포기 — 미수령 배틀 삭제 (보상 없음)
+    @Transactional
+    public void abandonBattle(Long userId, Long battleId) {
+        Battle battle = battleRepository.findByIdAndUserId(battleId, userId)
+                .orElseThrow(() -> new RuntimeException("배틀을 찾을 수 없습니다."));
+        battleLogRepository.deleteAllByBattleId(battleId);
+        battleRepository.delete(battle);
+        log.info("userId={} battleId={} 배틀 포기", userId, battleId);
     }
 
     // 모험 시작
@@ -118,7 +136,7 @@ public class AdventureService {
         return new AdventureStartResponse(battle, monster, stat, calc.logs());
     }
 
-    // 보상 수령
+    // 보상 수령 — 완료 후 battle_logs 즉시 삭제
     @Transactional
     public AdventureConfirmResponse confirmRewards(Long userId, Long battleId) {
         Battle battle = battleRepository.findByIdAndUserId(battleId, userId)
@@ -142,11 +160,14 @@ public class AdventureService {
                     CurrencySource.BATTLE, battle.getId());
         }
 
+        // 보상 수령 완료 → battle_logs 즉시 삭제 (용량 절약)
+        battleLogRepository.deleteAllByBattleId(battleId);
+        log.info("userId={} battleId={} 보상 수령 완료, 로그 삭제", userId, battleId);
+
         return new AdventureConfirmResponse(
                 battle.getResult(), expGained, goldGained, levelsGained, stat);
     }
 
-    // 배틀 계산
     private BattleCalcResult calculateBattle(CharacterStat player, Monster monster) {
         int playerHp = player.getMaxHp();
         int monsterHp = monster.getHp();
@@ -177,14 +198,13 @@ public class AdventureService {
                 monsterHp <= 0 ? BattleResult.WIN : BattleResult.LOSE, logs);
     }
 
-    // 첫 접속 시 모든 캐릭터 stat 생성 (첫 번째가 active)
     private List<CharacterStat> createAllDefaultStats(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
 
         List<GameCharacter> allCharacters = characterRepository.findAllByOrderByIdAsc();
         if (allCharacters.isEmpty()) {
-            throw new RuntimeException("기본 캐릭터가 없습니다. characters 테이블에 데이터를 추가해주세요.");
+            throw new RuntimeException("기본 캐릭터가 없습니다.");
         }
 
         List<CharacterStat> result = new ArrayList<>();
@@ -199,7 +219,7 @@ public class AdventureService {
                     .hp(gc.getBaseHp())
                     .maxHp(gc.getBaseHp())
                     .doubleAttackChance(gc.getDoubleAttackChance())
-                    .isActive(i == 0) // 첫 번째 캐릭터만 active
+                    .isActive(i == 0)
                     .build();
             result.add(characterStatRepository.save(stat));
         }

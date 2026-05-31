@@ -1,9 +1,8 @@
 package com.holyhabit.holyhabit.controller.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.holyhabit.holyhabit.entity.CharacterStat;
-import lombok.Getter;
 
-@Getter
 public class CharacterStatResponse {
     private final Long statId;
     private final Long characterId;
@@ -32,4 +31,21 @@ public class CharacterStatResponse {
         this.hp = stat.getHp();
         this.maxHp = stat.getMaxHp();
     }
+
+    public Long getStatId() { return statId; }
+    public Long getCharacterId() { return characterId; }
+    public String getCharacterName() { return characterName; }
+    public String getImageKey() { return imageKey; }
+
+    // isActive → Jackson 이 "active" 로 직렬화하는 걸 방지
+    @JsonProperty("isActive")
+    public boolean isActive() { return isActive; }
+
+    public int getLevel() { return level; }
+    public int getExp() { return exp; }
+    public int getRequiredExp() { return requiredExp; }
+    public int getAtk() { return atk; }
+    public int getDef() { return def; }
+    public int getHp() { return hp; }
+    public int getMaxHp() { return maxHp; }
 }
