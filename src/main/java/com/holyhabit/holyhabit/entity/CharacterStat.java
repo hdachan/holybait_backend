@@ -5,7 +5,13 @@ import lombok.*;
 
 @Entity
 @Table(name = "character_stats",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "character_id"}))
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "character_id"}),
+        indexes = {
+                @Index(
+                        name = "idx_character_stats_user_active",
+                        columnList = "user_id, is_active"
+                )
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -22,7 +28,7 @@ public class CharacterStat {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "character_id", nullable = false)
-    private GameCharacter character;   // java.lang.Character 충돌 방지
+    private GameCharacter character;
 
     @Column(nullable = false)
     private int level;

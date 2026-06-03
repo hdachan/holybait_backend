@@ -5,7 +5,13 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "workout_logs")
+@Table(name = "workout_logs",
+        indexes = {
+                @Index(
+                        name = "idx_workout_logs_user_exercise_date",
+                        columnList = "user_id, routine_exercise_id, logged_at"
+                )
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -25,7 +31,7 @@ public class WorkoutLog {
     private RoutineExercise routineExercise;
 
     @Column(nullable = false)
-    private LocalDateTime loggedAt; // 실제 운동한 날짜
+    private LocalDateTime loggedAt;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
