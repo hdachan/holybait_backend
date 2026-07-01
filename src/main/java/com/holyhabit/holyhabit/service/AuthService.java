@@ -62,6 +62,23 @@ public class AuthService {
         tokenService.revokeAllTokens(userId);
     }
 
+    // 닉네임 수정
+    @Transactional
+    public User updateNickname(Long userId, String nickname) {
+        if (nickname == null || nickname.isBlank()) {
+            throw new IllegalArgumentException("닉네임을 입력해주세요.");
+        }
+        String trimmed = nickname.trim();
+        if (trimmed.length() < 2 || trimmed.length() > 12) {
+            throw new IllegalArgumentException("닉네임은 2~12자로 입력해주세요.");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("유저 없음"));
+        user.updateNickname(trimmed);
+        return user;
+    }
+
     private User registerUser(OAuthService.GoogleUserInfo googleUser) {
         return userRepository.save(User.builder()
                 .uuid(UUID.randomUUID().toString())

@@ -3,6 +3,8 @@ package com.holyhabit.holyhabit.controller;
 import com.holyhabit.holyhabit.controller.dto.LoginRequest;
 import com.holyhabit.holyhabit.controller.dto.LoginResponse;
 import com.holyhabit.holyhabit.controller.dto.TokenRefreshRequest;
+import com.holyhabit.holyhabit.controller.dto.UpdateNicknameRequest;
+import com.holyhabit.holyhabit.entity.User;
 import com.holyhabit.holyhabit.security.CustomUserDetails;
 import com.holyhabit.holyhabit.service.AuthService;
 import com.holyhabit.holyhabit.service.TokenService;
@@ -71,19 +73,33 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
-    // 내 정보 조회 — createdAt 추가
+    // 내 정보 조회
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> me(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         var user = userDetails.getUser();
-        return ResponseEntity.ok(Map.of(
+        return ResponseEntity.ok(toResponseMap(user));
+    }
+
+    // 닉네임 수정
+    @PatchMapping("/me")
+    public ResponseEntity<Map<String, Object>> updateMe(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody UpdateNicknameRequest request
+    ) {
+        User updated = authService.updateNickname(userDetails.getUserId(), request.getNickname());
+        return ResponseEntity.ok(toResponseMap(updated));
+    }
+
+    private Map<String, Object> toResponseMap(User user) {
+        return Map.of(
                 "uuid",      user.getUuid(),
                 "email",     user.getEmail(),
                 "nickname",  user.getNickname(),
                 "provider",  user.getProvider(),
                 "status",    user.getStatus(),
                 "createdAt", user.getCreatedAt().toString()
-        ));
+        );
     }
 }
