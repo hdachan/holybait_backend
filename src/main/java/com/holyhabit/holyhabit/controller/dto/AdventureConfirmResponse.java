@@ -2,26 +2,30 @@ package com.holyhabit.holyhabit.controller.dto;
 
 import com.holyhabit.holyhabit.entity.BattleResult;
 import com.holyhabit.holyhabit.entity.CharacterStat;
-import lombok.AllArgsConstructor;
+import com.holyhabit.holyhabit.entity.GameCharacter;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
 public class AdventureConfirmResponse {
-    private final String result;       // WIN / LOSE
+    private final String result;
     private final int expGained;
     private final int goldGained;
-    private final int levelsGained;    // 레벨업 횟수
+    private final int levelsGained;
     private final int newLevel;
     private final int newExp;
-    private final int requiredExp;     // 다음 레벨까지 필요 경험치
+    private final int requiredExp;
     private final int newAtk;
     private final int newDef;
     private final int newMaxHp;
 
+    // 캐릭터 드롭 정보 (null이면 드롭 없음)
+    private final String droppedCharacterName;
+    private final String droppedCharacterImageKey;
+
     public AdventureConfirmResponse(BattleResult result, int expGained,
-                                     int goldGained, int levelsGained,
-                                     CharacterStat stat) {
+                                    int goldGained, int levelsGained,
+                                    CharacterStat stat,
+                                    GameCharacter droppedCharacter) {
         this.result = result.name();
         this.expGained = expGained;
         this.goldGained = goldGained;
@@ -32,5 +36,9 @@ public class AdventureConfirmResponse {
         this.newAtk = stat.getAtk();
         this.newDef = stat.getDef();
         this.newMaxHp = stat.getMaxHp();
+
+        // 드롭된 캐릭터 정보 (없으면 null)
+        this.droppedCharacterName     = droppedCharacter != null ? droppedCharacter.getName() : null;
+        this.droppedCharacterImageKey = droppedCharacter != null ? droppedCharacter.getImageKey() : null;
     }
 }

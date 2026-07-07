@@ -31,6 +31,9 @@ public class AdventureService {
 
     private static final Random random = new Random();
 
+    // 배틀 승리 시 캐릭터 드롭 확률 5%
+    private static final double CHARACTER_DROP_CHANCE = 0.05;
+
     @Transactional(readOnly = true)
     public List<Stage> getStages() {
         return stageRepository.findAllByOrderByIdAsc();
@@ -67,7 +70,7 @@ public class AdventureService {
         return target;
     }
 
-    // 미수령 배틀 조회 — 맵 화면 진입 시 체크
+    // 미수령 배틀 조회
     @Transactional(readOnly = true)
     public Optional<PendingBattleResponse> getPendingBattle(Long userId) {
         return battleRepository
@@ -81,7 +84,7 @@ public class AdventureService {
                 });
     }
 
-    // 배틀 포기 — 미수령 배틀 삭제 (보상 없음)
+    // 배틀 포기
     @Transactional
     public void abandonBattle(Long userId, Long battleId) {
         Battle battle = battleRepository.findByIdAndUserId(battleId, userId)
@@ -136,7 +139,7 @@ public class AdventureService {
         return new AdventureStartResponse(battle, monster, stat, calc.logs());
     }
 
-    // 보상 수령 — 완료 후 battle_logs 즉시 삭제
+    // 보상 수령
     @Transactional
     public AdventureConfirmResponse confirmRewards(Long userId, Long battleId) {
         Battle battle = battleRepository.findByIdAndUserId(battleId, userId)
@@ -149,7 +152,10 @@ public class AdventureService {
         battle.claimRewards();
 
         CharacterStat stat = getActiveStat(userId);
-        int expGained = 0, goldGained = 0, levelsGained = 0;
+        int expGained = 0;
+        int goldGained = 0;
+        int levelsGained = 0;
+        GameCharacter droppedCharacter = null;
 
         if (battle.getResult() == BattleResult.WIN) {
             Monster monster = battle.getMonster();
@@ -158,14 +164,53 @@ public class AdventureService {
             levelsGained = stat.addExpAndLevelUp(expGained);
             currencyService.grantGold(userId, goldGained,
                     CurrencySource.BATTLE, battle.getId());
+
+            // 캐릭터 드롭 — 5% 확률
+            droppedCharacter = tryDropCharacter(userId);
+            if (droppedCharacter != null) {
+                log.info("userId={} 캐릭터 드롭 발생: characterId={}",
+                        userId, droppedCharacter.getId());
+            }
         }
 
-        // 보상 수령 완료 → battle_logs 즉시 삭제 (용량 절약)
+        // 보상 수령 완료 → battle_logs 삭제
         battleLogRepository.deleteAllByBattleId(battleId);
         log.info("userId={} battleId={} 보상 수령 완료, 로그 삭제", userId, battleId);
 
         return new AdventureConfirmResponse(
-                battle.getResult(), expGained, goldGained, levelsGained, stat);
+                battle.getResult(), expGained, goldGained,
+                levelsGained, stat, droppedCharacter);
+    }
+
+    // 캐릭터 드롭 처리
+    // 5% 확률로 랜덤 캐릭터 1마리 지급 (중복 가능)
+    private GameCharacter tryDropCharacter(Long userId) {
+        if (random.nextDouble() >= CHARACTER_DROP_CHANCE) {
+            return null; // 드롭 실패
+        }
+
+        List<GameCharacter> allCharacters = characterRepository.findAllByOrderByIdAsc();
+        if (allCharacters.isEmpty()) return null;
+
+        // 랜덤으로 캐릭터 1개 선택
+        GameCharacter dropped = allCharacters.get(random.nextInt(allCharacters.size()));
+
+        // CharacterStat 새로 생성 (중복 보유 가능)
+        User user = userRepository.getReferenceById(userId);
+        CharacterStat newStat = CharacterStat.builder()
+                .user(user)
+                .character(dropped)
+                .level(1).exp(0)
+                .atk(dropped.getBaseAtk())
+                .def(dropped.getBaseDef())
+                .hp(dropped.getBaseHp())
+                .maxHp(dropped.getBaseHp())
+                .doubleAttackChance(dropped.getDoubleAttackChance())
+                .isActive(false)
+                .build();
+        characterStatRepository.save(newStat);
+
+        return dropped;
     }
 
     private BattleCalcResult calculateBattle(CharacterStat player, Monster monster) {
@@ -177,6 +222,7 @@ public class AdventureService {
         while (playerHp > 0 && monsterHp > 0) {
             turn++;
 
+            // 플레이어 공격
             boolean playerDouble = random.nextDouble() < player.getDoubleAttackChance();
             int playerDmg = Math.max(1, player.getAtk() - monster.getDef());
             if (playerDouble) playerDmg *= 2;
@@ -186,6 +232,7 @@ public class AdventureService {
 
             if (monsterHp <= 0) break;
 
+            // 몬스터 공격
             boolean monsterDouble = random.nextDouble() < monster.getDoubleAttackChance();
             int monsterDmg = Math.max(1, monster.getAtk() - player.getDef());
             if (monsterDouble) monsterDmg *= 2;
