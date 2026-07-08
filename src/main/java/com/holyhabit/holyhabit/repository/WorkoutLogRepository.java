@@ -34,4 +34,17 @@ public interface WorkoutLogRepository extends JpaRepository<WorkoutLog, Long> {
     @Modifying
     @Query("DELETE FROM WorkoutLog w WHERE w.routineExercise.id = :routineExerciseId")
     void deleteAllByRoutineExerciseId(Long routineExerciseId);
+
+    // 유저의 전체 운동 로그 (최신순) — 전체 기록 목록용
+    List<WorkoutLog> findAllByUserIdOrderByLoggedAtDesc(Long userId);
+
+    // 특정 종목의 운동 로그 (최신순) — 종목 상세 기록용
+    @Query("""
+        SELECT wl FROM WorkoutLog wl
+        WHERE wl.user.id = :userId
+          AND wl.routineExercise.exercise.id = :exerciseId
+        ORDER BY wl.loggedAt DESC
+        """)
+    List<WorkoutLog> findAllByUserIdAndExerciseIdOrderByLoggedAtDesc(
+            Long userId, Long exerciseId);
 }

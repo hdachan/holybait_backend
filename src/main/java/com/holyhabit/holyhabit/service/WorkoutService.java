@@ -1,5 +1,7 @@
 package com.holyhabit.holyhabit.service;
 
+import com.holyhabit.holyhabit.controller.dto.WorkoutHistoryDetailResponse;
+import com.holyhabit.holyhabit.controller.dto.WorkoutHistoryResponse;
 import com.holyhabit.holyhabit.entity.*;
 import com.holyhabit.holyhabit.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -10,13 +12,19 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class WorkoutService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final DateTimeFormatter DATE_FMT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private final WorkoutLogRepository workoutLogRepository;
     private final WorkoutSetRepository workoutSetRepository;
@@ -38,7 +46,6 @@ public class WorkoutService {
                 .findById(routineExerciseId)
                 .orElseThrow(() -> new RuntimeException("루틴 운동을 찾을 수 없습니다."));
 
-        // 오늘 이미 저장한 log 가 있으면 재사용, 없으면 새로 생성
         LocalDate todayKst = LocalDate.now(KST);
         LocalDateTime from = todayKst.atStartOfDay();
         LocalDateTime to = todayKst.plusDays(1).atStartOfDay();
@@ -48,10 +55,8 @@ public class WorkoutService {
                 .orElse(null);
 
         if (log != null) {
-            // 기존 오늘 log → 세트 전부 삭제 후 새로 저장 (덮어쓰기)
             workoutSetRepository.deleteAllByWorkoutLogId(log.getId());
         } else {
-            // 새 log 생성
             log = WorkoutLog.builder()
                     .user(user)
                     .routineExercise(routineExercise)
@@ -85,6 +90,70 @@ public class WorkoutService {
         }
 
         return new SaveResult(log, grantedShoeCoin);
+    }
+
+    // 내가 운동한 종목 목록
+    @Transactional(readOnly = true)
+    public List<WorkoutHistoryResponse> getExerciseHistory(Long userId) {
+        List<WorkoutLog> logs = workoutLogRepository
+                .findAllByUserIdOrderByLoggedAtDesc(userId);
+
+        // exerciseId 기준으로 그룹핑
+        Map<Long, List<WorkoutLog>> grouped = logs.stream()
+                .collect(Collectors.groupingBy(
+                        log -> log.getRoutineExercise().getExercise().getId()));
+
+        List<WorkoutHistoryResponse> result = new ArrayList<>();
+        for (Map.Entry<Long, List<WorkoutLog>> entry : grouped.entrySet()) {
+            WorkoutLog latest = entry.getValue().get(0); // 최신 기록
+            Exercise exercise = latest.getRoutineExercise().getExercise();
+
+            result.add(new WorkoutHistoryResponse(
+                    exercise.getId(),
+                    exercise.getName(),
+                    exercise.getTarget(),
+                    latest.getLoggedAt().toLocalDate().format(DATE_FMT),
+                    entry.getValue().size()
+            ));
+        }
+
+        // 최근 운동일 기준 정렬
+        result.sort((a, b) -> b.getLastLoggedDate().compareTo(a.getLastLoggedDate()));
+        return result;
+    }
+
+    // 특정 종목 날짜별 기록
+    @Transactional(readOnly = true)
+    public List<WorkoutHistoryDetailResponse> getExerciseDetail(
+            Long userId, Long exerciseId) {
+
+        List<WorkoutLog> logs = workoutLogRepository
+                .findAllByUserIdAndExerciseIdOrderByLoggedAtDesc(userId, exerciseId);
+
+        List<WorkoutHistoryDetailResponse> result = new ArrayList<>();
+        for (WorkoutLog log : logs) {
+            List<WorkoutSet> sets = workoutSetRepository
+                    .findAllByWorkoutLogIdOrderBySetNumber(log.getId());
+
+            int totalSets = (int) sets.stream()
+                    .filter(s -> !s.isDropset()).count();
+
+            List<WorkoutHistoryDetailResponse.SetDetail> setDetails = sets.stream()
+                    .map(s -> new WorkoutHistoryDetailResponse.SetDetail(
+                            s.getSetNumber(),
+                            s.getWeightKg() != null ? s.getWeightKg().doubleValue() : null,
+                            s.getReps(),
+                            s.isDropset()
+                    ))
+                    .toList();
+
+            result.add(new WorkoutHistoryDetailResponse(
+                    log.getLoggedAt().toLocalDate().format(DATE_FMT),
+                    totalSets,
+                    setDetails
+            ));
+        }
+        return result;
     }
 
     public record SetRequest(BigDecimal weightKg, Integer reps, boolean isDropset) {}

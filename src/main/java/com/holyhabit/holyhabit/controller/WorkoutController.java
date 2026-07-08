@@ -1,6 +1,8 @@
 package com.holyhabit.holyhabit.controller;
 
 import com.holyhabit.holyhabit.controller.dto.RecentSetsResponse;
+import com.holyhabit.holyhabit.controller.dto.WorkoutHistoryDetailResponse;
+import com.holyhabit.holyhabit.controller.dto.WorkoutHistoryResponse;
 import com.holyhabit.holyhabit.controller.dto.WorkoutRequest;
 import com.holyhabit.holyhabit.controller.dto.WorkoutResponse;
 import com.holyhabit.holyhabit.entity.WorkoutLog;
@@ -14,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,8 +29,10 @@ public class WorkoutController {
     private final WorkoutSetRepository workoutSetRepository;
     private final WorkoutLogRepository workoutLogRepository;
 
+    private static final DateTimeFormatter DATE_FMT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
     // 운동 기록 저장
-    // 슈퍼세트/단일 구분 없이 항상 코인 지급 (각 운동 독립 계산)
     @PostMapping
     public ResponseEntity<WorkoutResponse> saveWorkout(
             @RequestBody WorkoutRequest request,
@@ -42,7 +47,7 @@ public class WorkoutController {
                 userDetails.getUserId(),
                 request.getRoutineExerciseId(),
                 sets,
-                true // 항상 코인 지급 — 내부에서 오늘 받은 양 비교해서 차이만 지급
+                true
         );
 
         List<WorkoutSet> savedSets = workoutSetRepository
@@ -53,7 +58,6 @@ public class WorkoutController {
     }
 
     // 최근 운동 기록 조회
-    // loggedAt 을 최상위에 포함해서 Flutter 에서 오늘/이전 구분 명확히
     @GetMapping("/recent/{routineExerciseId}")
     public ResponseEntity<RecentSetsResponse> getRecentSets(
             @PathVariable Long routineExerciseId,
@@ -70,5 +74,29 @@ public class WorkoutController {
                 .findAllByWorkoutLogIdOrderBySetNumber(log.getId());
 
         return ResponseEntity.ok(new RecentSetsResponse(log, sets));
+    }
+
+    // 내가 운동한 종목 목록 (전체 기록용)
+    // GET /workouts/exercises
+    @GetMapping("/exercises")
+    public ResponseEntity<List<WorkoutHistoryResponse>> getExerciseHistory(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        List<WorkoutHistoryResponse> result =
+                workoutService.getExerciseHistory(userDetails.getUserId());
+        return ResponseEntity.ok(result);
+    }
+
+    // 특정 종목 날짜별 기록
+    // GET /workouts/exercises/{exerciseId}/history
+    @GetMapping("/exercises/{exerciseId}/history")
+    public ResponseEntity<List<WorkoutHistoryDetailResponse>> getExerciseDetail(
+            @PathVariable Long exerciseId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        List<WorkoutHistoryDetailResponse> result =
+                workoutService.getExerciseDetail(
+                        userDetails.getUserId(), exerciseId);
+        return ResponseEntity.ok(result);
     }
 }
