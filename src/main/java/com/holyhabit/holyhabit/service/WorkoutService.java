@@ -2,6 +2,7 @@ package com.holyhabit.holyhabit.service;
 
 import com.holyhabit.holyhabit.controller.dto.WorkoutHistoryDetailResponse;
 import com.holyhabit.holyhabit.controller.dto.WorkoutHistoryResponse;
+import com.holyhabit.holyhabit.controller.dto.WorkoutSummaryResponse;
 import com.holyhabit.holyhabit.entity.*;
 import com.holyhabit.holyhabit.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -16,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -158,4 +161,41 @@ public class WorkoutService {
 
     public record SetRequest(BigDecimal weightKg, Integer reps, boolean isDropset) {}
     public record SaveResult(WorkoutLog log, int grantedShoeCoin) {}
+
+    // 운동 통계
+    @Transactional(readOnly = true)
+    public WorkoutSummaryResponse getSummary(Long userId) {
+        List<WorkoutLog> allLogs = workoutLogRepository
+                .findAllByUserIdOrderByLoggedAtDesc(userId);
+
+        LocalDate todayKst = LocalDate.now(KST);
+
+        // 이번 주 운동 횟수 (월요일 ~ 오늘)
+        LocalDate monday = todayKst.with(DayOfWeek.MONDAY);
+        Set<LocalDate> thisWeekDates = allLogs.stream()
+                .map(l -> l.getLoggedAt().toLocalDate())
+                .filter(d -> !d.isBefore(monday) && !d.isAfter(todayKst))
+                .collect(Collectors.toSet());
+        int thisWeekCount = thisWeekDates.size();
+
+        // 연속 운동 일수
+        Set<LocalDate> allDates = allLogs.stream()
+                .map(l -> l.getLoggedAt().toLocalDate())
+                .collect(Collectors.toSet());
+        int streakDays = 0;
+        LocalDate check = todayKst;
+        while (allDates.contains(check)) {
+            streakDays++;
+            check = check.minusDays(1);
+        }
+
+        // 총 운동 종목 수 (중복 제거)
+        long totalExercises = allLogs.stream()
+                .map(l -> l.getRoutineExercise().getExercise().getId())
+                .distinct()
+                .count();
+
+        return new WorkoutSummaryResponse(
+                thisWeekCount, streakDays, (int) totalExercises);
+    }
 }

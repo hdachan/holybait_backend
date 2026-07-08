@@ -3,6 +3,7 @@ package com.holyhabit.holyhabit.controller;
 import com.holyhabit.holyhabit.controller.dto.RecentSetsResponse;
 import com.holyhabit.holyhabit.controller.dto.WorkoutHistoryDetailResponse;
 import com.holyhabit.holyhabit.controller.dto.WorkoutHistoryResponse;
+import com.holyhabit.holyhabit.controller.dto.WorkoutSummaryResponse;
 import com.holyhabit.holyhabit.controller.dto.WorkoutRequest;
 import com.holyhabit.holyhabit.controller.dto.WorkoutResponse;
 import com.holyhabit.holyhabit.entity.WorkoutLog;
@@ -74,6 +75,16 @@ public class WorkoutController {
                 .findAllByWorkoutLogIdOrderBySetNumber(log.getId());
 
         return ResponseEntity.ok(new RecentSetsResponse(log, sets));
+    }
+
+    // 운동 통계
+    // GET /workouts/summary
+    @GetMapping("/summary")
+    public ResponseEntity<WorkoutSummaryResponse> getSummary(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ResponseEntity.ok(
+                workoutService.getSummary(userDetails.getUserId()));
     }
 
     // 내가 운동한 종목 목록 (전체 기록용)
