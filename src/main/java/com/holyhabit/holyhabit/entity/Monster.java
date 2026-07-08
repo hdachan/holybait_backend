@@ -35,14 +35,23 @@ public class Monster {
     private int def;
 
     @Column(nullable = false)
-    private int expReward;         // 처치 시 경험치
+    private int expReward;
 
     @Column(nullable = false)
-    private int goldReward;        // 처치 시 골드
+    private int goldReward;
 
-    // 더블어택 확률 (0.0 ~ 1.0)
     @Column(nullable = false)
     private double doubleAttackChance;
 
-    private String imageKey;       // Flutter 이미지 키
+    private String imageKey;
+
+    // 처치 시 드롭되는 캐릭터 (null이면 드롭 없음)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "drop_character_id", nullable = true)
+    private GameCharacter dropCharacter;
+
+    // 캐릭터 드롭 확률 (0.0 ~ 1.0, 기본값 0%)
+    @Column(nullable = false)
+    @Builder.Default
+    private double dropChance = 0.0;
 }

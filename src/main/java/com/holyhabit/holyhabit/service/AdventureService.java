@@ -165,8 +165,8 @@ public class AdventureService {
             currencyService.grantGold(userId, goldGained,
                     CurrencySource.BATTLE, battle.getId());
 
-            // 캐릭터 드롭 — 5% 확률
-            droppedCharacter = tryDropCharacter(userId);
+            // 캐릭터 드롭 — 몬스터에 지정된 캐릭터 5% 확률
+            droppedCharacter = tryDropCharacter(userId, battle.getMonster());
             if (droppedCharacter != null) {
                 log.info("userId={} 캐릭터 드롭 발생: characterId={}",
                         userId, droppedCharacter.getId());
@@ -183,17 +183,16 @@ public class AdventureService {
     }
 
     // 캐릭터 드롭 처리
-    // 5% 확률로 랜덤 캐릭터 1마리 지급 (중복 가능)
-    private GameCharacter tryDropCharacter(Long userId) {
-        if (random.nextDouble() >= CHARACTER_DROP_CHANCE) {
-            return null; // 드롭 실패
-        }
+    // 몬스터에 dropCharacter 지정된 경우 dropChance 확률로 드롭
+    // dropCharacter가 null이면 드롭 없음
+    private GameCharacter tryDropCharacter(Long userId, Monster monster) {
+        // 드롭 캐릭터 미지정 몬스터 → 드롭 없음
+        if (monster.getDropCharacter() == null) return null;
 
-        List<GameCharacter> allCharacters = characterRepository.findAllByOrderByIdAsc();
-        if (allCharacters.isEmpty()) return null;
+        // 몬스터별 드롭 확률 체크
+        if (random.nextDouble() >= monster.getDropChance()) return null;
 
-        // 랜덤으로 캐릭터 1개 선택
-        GameCharacter dropped = allCharacters.get(random.nextInt(allCharacters.size()));
+        GameCharacter dropped = monster.getDropCharacter();
 
         // CharacterStat 새로 생성 (중복 보유 가능)
         User user = userRepository.getReferenceById(userId);
