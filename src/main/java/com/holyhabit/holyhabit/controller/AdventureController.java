@@ -19,6 +19,22 @@ public class AdventureController {
 
     private final AdventureService adventureService;
 
+    // 캐릭터 슬롯 수 조회
+    @GetMapping("/slots")
+    public ResponseEntity<Integer> getSlotCount(
+            @AuthenticationPrincipal CustomUserDetails u) {
+        return ResponseEntity.ok(
+                adventureService.getSlotCount(u.getUserId()));
+    }
+
+    // 슬롯 확장 구매 (골드 소모)
+    @PostMapping("/slots/expand")
+    public ResponseEntity<SlotExpandResponse> expandSlot(
+            @AuthenticationPrincipal CustomUserDetails u) {
+        return ResponseEntity.ok(
+                adventureService.expandSlot(u.getUserId()));
+    }
+
     // 스테이지 목록
     @GetMapping("/stages")
     public ResponseEntity<List<Stage>> getStages(
@@ -54,8 +70,7 @@ public class AdventureController {
                         adventureService.selectCharacter(u.getUserId(), statId)));
     }
 
-    // 미수령 배틀 조회 — 맵 화면 진입 시 호출
-    // 있으면 PendingBattleResponse, 없으면 204 No Content
+    // 미수령 배틀 조회
     @GetMapping("/pending")
     public ResponseEntity<PendingBattleResponse> getPendingBattle(
             @AuthenticationPrincipal CustomUserDetails u) {
@@ -65,7 +80,7 @@ public class AdventureController {
                 .orElse(ResponseEntity.noContent().build());
     }
 
-    // 배틀 포기 — 미수령 배틀 삭제 (보상 없음)
+    // 배틀 포기
     @DeleteMapping("/{battleId}/abandon")
     public ResponseEntity<Void> abandonBattle(
             @PathVariable Long battleId,

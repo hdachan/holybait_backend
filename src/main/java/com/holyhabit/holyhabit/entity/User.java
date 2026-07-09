@@ -36,6 +36,11 @@ public class User {
     @Enumerated(EnumType.STRING)
     private UserStatus status;
 
+    // 캐릭터 슬롯 수 (기본 4, 최대 10, 상점에서 골드로 확장)
+    @Column(nullable = false)
+    @Builder.Default
+    private int slotCount = 4;
+
     private LocalDateTime lastLoginAt;
     private LocalDateTime deletedAt;
 
@@ -49,6 +54,7 @@ public class User {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         if (this.status == null) this.status = UserStatus.ACTIVE;
+        if (this.slotCount == 0) this.slotCount = 4;
     }
 
     @PreUpdate
@@ -65,8 +71,14 @@ public class User {
         this.deletedAt = LocalDateTime.now();
     }
 
-    // 닉네임 수정
     public void updateNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    // 슬롯 확장 (최대 10개)
+    public boolean expandSlot() {
+        if (this.slotCount >= 10) return false;
+        this.slotCount++;
+        return true;
     }
 }

@@ -19,9 +19,12 @@ public interface CharacterStatRepository extends JpaRepository<CharacterStat, Lo
     // 특정 캐릭터 보유 여부
     Optional<CharacterStat> findByUserIdAndCharacterId(Long userId, Long characterId);
 
+    // 유저의 캐릭터 수 (슬롯 꽉 찼는지 체크용)
+    int countByUserId(Long userId);
+
     // 모든 캐릭터 비활성화 (캐릭터 변경 시)
     @Modifying
-    @Transactional  // 추가
+    @Transactional
     @Query("UPDATE CharacterStat cs SET cs.isActive = false WHERE cs.user.id = :userId")
     void deactivateAll(Long userId);
 }

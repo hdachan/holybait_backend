@@ -3,6 +3,7 @@ package com.holyhabit.holyhabit.service;
 import com.holyhabit.holyhabit.controller.dto.AdventureStartResponse;
 import com.holyhabit.holyhabit.controller.dto.AdventureConfirmResponse;
 import com.holyhabit.holyhabit.controller.dto.PendingBattleResponse;
+import com.holyhabit.holyhabit.controller.dto.SlotExpandResponse;
 import com.holyhabit.holyhabit.entity.*;
 import com.holyhabit.holyhabit.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -27,12 +28,83 @@ public class AdventureService {
     private final BattleRepository battleRepository;
     private final BattleLogRepository battleLogRepository;
     private final UserRepository userRepository;
+    private final UserCurrencyRepository userCurrencyRepository;
+    private final CurrencyLogRepository currencyLogRepository;
     private final CurrencyService currencyService;
 
     private static final Random random = new Random();
 
     // 배틀 승리 시 캐릭터 드롭 확률 5%
     private static final double CHARACTER_DROP_CHANCE = 0.05;
+
+    @Transactional(readOnly = true)
+    public int getSlotCount(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
+        return user.getSlotCount();
+    }
+
+    // 슬롯 확장 가격표
+    private static final int[] SLOT_COSTS = {
+            0,     // 1번째 (기본)
+            0,     // 2번째 (기본)
+            0,     // 3번째 (기본)
+            0,     // 4번째 (기본)
+            500,   // 5번째
+            1000,  // 6번째
+            1500,  // 7번째
+            2500,  // 8번째
+            3500,  // 9번째
+            5000,  // 10번째
+    };
+
+    public static int getSlotCost(int currentSlotCount) {
+        if (currentSlotCount >= 10) return -1;
+        return SLOT_COSTS[currentSlotCount];
+    }
+
+    @Transactional
+    public SlotExpandResponse expandSlot(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
+
+        int currentSlot = user.getSlotCount();
+        if (currentSlot >= 10) {
+            throw new RuntimeException("슬롯이 이미 최대입니다.");
+        }
+
+        int cost = SLOT_COSTS[currentSlot];
+
+        // 골드 차감
+        UserCurrency currency = userCurrencyRepository
+                .findByUserIdWithLock(userId)
+                .orElseThrow(() -> new RuntimeException("재화 정보를 찾을 수 없습니다."));
+
+        if (currency.getGold() < cost) {
+            throw new RuntimeException("골드가 부족합니다.");
+        }
+
+        currency.spendGold(cost);
+
+        // currency_logs 기록
+        currencyLogRepository.save(CurrencyLog.builder()
+                .user(user)
+                .currencyType(CurrencyType.GOLD)
+                .amount(-cost)
+                .source(CurrencySource.SPEND)
+                .build());
+
+        // 슬롯 확장
+        user.expandSlot();
+
+        int nextCost = getSlotCost(user.getSlotCount());
+
+        log.info("userId={} 슬롯 확장 {} → {} (골드 {}개 소모)",
+                userId, currentSlot, user.getSlotCount(), cost);
+
+        return new SlotExpandResponse(
+                user.getSlotCount(), currency.getGold(), nextCost);
+    }
 
     @Transactional(readOnly = true)
     public List<Stage> getStages() {
@@ -192,10 +264,19 @@ public class AdventureService {
         // 몬스터별 드롭 확률 체크
         if (random.nextDouble() >= monster.getDropChance()) return null;
 
+        // 슬롯 꽉 찼으면 드롭 안 함
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
+        int currentCharCount = characterStatRepository.countByUserId(userId);
+        if (currentCharCount >= user.getSlotCount()) {
+            log.info("userId={} 슬롯 꽉 참 ({}/{}), 캐릭터 드롭 스킵",
+                    userId, currentCharCount, user.getSlotCount());
+            return null;
+        }
+
         GameCharacter dropped = monster.getDropCharacter();
 
         // CharacterStat 새로 생성 (중복 보유 가능)
-        User user = userRepository.getReferenceById(userId);
         CharacterStat newStat = CharacterStat.builder()
                 .user(user)
                 .character(dropped)
