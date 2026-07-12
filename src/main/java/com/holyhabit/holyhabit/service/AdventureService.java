@@ -37,6 +37,26 @@ public class AdventureService {
     // 배틀 승리 시 캐릭터 드롭 확률 5%
     private static final double CHARACTER_DROP_CHANCE = 0.05;
 
+    // 캐릭터 삭제 (마지막 1마리 삭제 불가, 활성 캐릭터 삭제 불가)
+    @Transactional
+    public void deleteCharacter(Long userId, Long statId) {
+        CharacterStat stat = characterStatRepository.findById(statId)
+                .orElseThrow(() -> new RuntimeException("캐릭터를 찾을 수 없습니다."));
+
+        if (!stat.getUser().getId().equals(userId)) {
+            throw new RuntimeException("본인 캐릭터가 아닙니다.");
+        }
+        if (stat.isActive()) {
+            throw new RuntimeException("착용 중인 캐릭터는 삭제할 수 없습니다.");
+        }
+        int count = characterStatRepository.countByUserId(userId);
+        if (count <= 1) {
+            throw new RuntimeException("마지막 캐릭터는 삭제할 수 없습니다.");
+        }
+        characterStatRepository.delete(stat);
+        log.info("userId={} statId={} 캐릭터 삭제", userId, statId);
+    }
+
     @Transactional(readOnly = true)
     public int getSlotCount(Long userId) {
         User user = userRepository.findById(userId)

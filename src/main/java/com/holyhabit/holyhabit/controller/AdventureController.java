@@ -70,7 +70,14 @@ public class AdventureController {
                         adventureService.selectCharacter(u.getUserId(), statId)));
     }
 
-    // 미수령 배틀 조회
+    // 캐릭터 삭제 (마지막 1마리 삭제 불가)
+    @DeleteMapping("/character/{statId}")
+    public ResponseEntity<Void> deleteCharacter(
+            @PathVariable Long statId,
+            @AuthenticationPrincipal CustomUserDetails u) {
+        adventureService.deleteCharacter(u.getUserId(), statId);
+        return ResponseEntity.ok().build();
+    }
     @GetMapping("/pending")
     public ResponseEntity<PendingBattleResponse> getPendingBattle(
             @AuthenticationPrincipal CustomUserDetails u) {
