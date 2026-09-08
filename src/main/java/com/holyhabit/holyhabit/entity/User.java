@@ -36,10 +36,20 @@ public class User {
     @Enumerated(EnumType.STRING)
     private UserStatus status;
 
-    // 캐릭터 슬롯 수 (기본 4, 최대 10, 상점에서 골드로 확장)
+    // 캐릭터 슬롯 수 (기본 4, 최대 10)
     @Column(nullable = false)
     @Builder.Default
     private int slotCount = 4;
+
+    // 동의 완료 여부 (false면 동의 화면 표시)
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean consentCompleted = false;
+
+    // 마케팅 수신 동의 (선택)
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean marketingAgreed = false;
 
     private LocalDateTime lastLoginAt;
     private LocalDateTime deletedAt;
@@ -62,23 +72,29 @@ public class User {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void updateLastLogin() {
-        this.lastLoginAt = LocalDateTime.now();
-    }
+    public void updateLastLogin() { this.lastLoginAt = LocalDateTime.now(); }
 
     public void softDelete() {
         this.status = UserStatus.DELETED;
         this.deletedAt = LocalDateTime.now();
     }
 
-    public void updateNickname(String nickname) {
-        this.nickname = nickname;
-    }
+    public void updateNickname(String nickname) { this.nickname = nickname; }
 
-    // 슬롯 확장 (최대 10개)
     public boolean expandSlot() {
         if (this.slotCount >= 10) return false;
         this.slotCount++;
         return true;
+    }
+
+    // 동의 완료 처리
+    public void completeConsent(boolean marketingAgreed) {
+        this.consentCompleted = true;
+        this.marketingAgreed = marketingAgreed;
+    }
+
+    // 마케팅 동의 업데이트
+    public void updateMarketingAgreed(boolean marketingAgreed) {
+        this.marketingAgreed = marketingAgreed;
     }
 }

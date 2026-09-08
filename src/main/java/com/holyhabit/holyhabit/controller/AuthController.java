@@ -1,9 +1,6 @@
 package com.holyhabit.holyhabit.controller;
 
-import com.holyhabit.holyhabit.controller.dto.LoginRequest;
-import com.holyhabit.holyhabit.controller.dto.LoginResponse;
-import com.holyhabit.holyhabit.controller.dto.TokenRefreshRequest;
-import com.holyhabit.holyhabit.controller.dto.UpdateNicknameRequest;
+import com.holyhabit.holyhabit.controller.dto.*;
 import com.holyhabit.holyhabit.entity.User;
 import com.holyhabit.holyhabit.security.CustomUserDetails;
 import com.holyhabit.holyhabit.service.AuthService;
@@ -24,21 +21,19 @@ public class AuthController {
     private final AuthService authService;
     private final TokenService tokenService;
 
-    // 로그인
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(
             @RequestBody LoginRequest request,
             HttpServletRequest httpRequest
     ) {
-        TokenService.TokenPair tokens = authService.loginWithGoogle(
+        LoginResponse response = authService.loginWithGoogle(
                 request.getIdToken(),
                 request.getDeviceInfo(),
                 httpRequest.getRemoteAddr()
         );
-        return ResponseEntity.ok(new LoginResponse(tokens.accessToken(), tokens.refreshToken()));
+        return ResponseEntity.ok(response);
     }
 
-    // Access Token 재발급
     @PostMapping("/refresh")
     public ResponseEntity<LoginResponse> refresh(
             @RequestBody TokenRefreshRequest request,
@@ -49,57 +44,81 @@ public class AuthController {
                 request.getDeviceInfo(),
                 httpRequest.getRemoteAddr()
         );
-        return ResponseEntity.ok(new LoginResponse(tokens.accessToken(), tokens.refreshToken()));
+        return ResponseEntity.ok(
+                new LoginResponse(tokens.accessToken(), tokens.refreshToken(), false));
     }
 
-    // 단일 기기 로그아웃
+    // 동의 완료 처리
+    @PostMapping("/consent")
+    public ResponseEntity<Void> consent(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody ConsentRequest request
+    ) {
+        authService.completeConsent(
+                userDetails.getUserId(),
+                request.isMarketingAgreed());
+        return ResponseEntity.ok().build();
+    }
+
+    // 마케팅 동의 업데이트
+    @PatchMapping("/consent/marketing")
+    public ResponseEntity<Void> updateMarketing(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody Map<String, Boolean> body
+    ) {
+        authService.updateMarketingConsent(
+                userDetails.getUserId(),
+                Boolean.TRUE.equals(body.get("marketingAgreed")));
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@RequestBody TokenRefreshRequest request) {
         tokenService.revokeToken(request.getRefreshToken());
         return ResponseEntity.ok().build();
     }
 
-    // 전체 기기 로그아웃
     @PostMapping("/logout/all")
-    public ResponseEntity<Void> logoutAll(@AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<Void> logoutAll(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         tokenService.revokeAllTokens(userDetails.getUserId());
         return ResponseEntity.ok().build();
     }
 
-    // 회원 탈퇴
     @DeleteMapping("/withdraw")
-    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<Void> withdraw(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         authService.withdraw(userDetails.getUserId());
         return ResponseEntity.ok().build();
     }
 
-    // 내 정보 조회
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> me(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        var user = userDetails.getUser();
-        return ResponseEntity.ok(toResponseMap(user));
+        return ResponseEntity.ok(toResponseMap(userDetails.getUser()));
     }
 
-    // 닉네임 수정
     @PatchMapping("/me")
     public ResponseEntity<Map<String, Object>> updateMe(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody UpdateNicknameRequest request
     ) {
-        User updated = authService.updateNickname(userDetails.getUserId(), request.getNickname());
+        User updated = authService.updateNickname(
+                userDetails.getUserId(), request.getNickname());
         return ResponseEntity.ok(toResponseMap(updated));
     }
 
     private Map<String, Object> toResponseMap(User user) {
         return Map.of(
-                "uuid",      user.getUuid(),
-                "email",     user.getEmail(),
-                "nickname",  user.getNickname(),
-                "provider",  user.getProvider(),
-                "status",    user.getStatus(),
-                "createdAt", user.getCreatedAt().toString()
+                "uuid",             user.getUuid(),
+                "email",            user.getEmail(),
+                "nickname",         user.getNickname(),
+                "provider",         user.getProvider(),
+                "status",           user.getStatus(),
+                "createdAt",        user.getCreatedAt().toString(),
+                "marketingAgreed",  user.isMarketingAgreed(),
+                "consentCompleted", user.isConsentCompleted()
         );
     }
 }

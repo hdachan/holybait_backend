@@ -1,5 +1,6 @@
 package com.holyhabit.holyhabit.service;
 
+import com.holyhabit.holyhabit.controller.dto.LoginResponse;
 import com.holyhabit.holyhabit.entity.*;
 import com.holyhabit.holyhabit.repository.LoginHistoryRepository;
 import com.holyhabit.holyhabit.repository.UserRepository;
@@ -23,37 +24,47 @@ public class AuthService {
     private final JwtProvider jwtProvider;
 
     @Transactional
-    public TokenService.TokenPair loginWithGoogle(String idToken, String deviceInfo, String ipAddress) {
+    public LoginResponse loginWithGoogle(String idToken, String deviceInfo, String ipAddress) {
 
-        // 1. Google idToken 검증
         OAuthService.GoogleUserInfo googleUser = oAuthService.verifyGoogleToken(idToken);
 
-        // 2. 유저 조회 or 신규 가입
         User user = userRepository
                 .findByProviderAndProviderId(Provider.GOOGLE, googleUser.providerId())
                 .orElseGet(() -> registerUser(googleUser));
 
-        // 3. 상태 확인
-        if (user.getStatus() == UserStatus.BANNED)   throw new RuntimeException("403_001");
-        if (user.getStatus() == UserStatus.DELETED)  throw new RuntimeException("403_002");
+        if (user.getStatus() == UserStatus.BANNED)  throw new RuntimeException("403_001");
+        if (user.getStatus() == UserStatus.DELETED) throw new RuntimeException("403_002");
 
-        // 4. 마지막 로그인 갱신
         user.updateLastLogin();
 
-        // 5. 토큰 발급
         String accessToken  = jwtProvider.generateAccessToken(user.getId(), "USER");
         String refreshToken = jwtProvider.generateRefreshToken(user.getId());
 
-        // 6. Refresh Token 저장
         tokenService.saveRefreshToken(user, refreshToken, deviceInfo, ipAddress);
-
-        // 7. 로그인 이력 기록
         saveLoginHistory(user, ipAddress, deviceInfo, LoginHistory.LoginStatus.SUCCESS);
 
-        return new TokenService.TokenPair(accessToken, refreshToken);
+        // consentCompleted = false면 동의 화면 표시
+        return new LoginResponse(
+                accessToken, refreshToken, !user.isConsentCompleted());
     }
 
-    // 회원 탈퇴 (soft delete)
+    // 동의 완료 처리
+    @Transactional
+    public void completeConsent(Long userId, boolean marketingAgreed) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("유저 없음"));
+        user.completeConsent(marketingAgreed);
+        log.info("userId={} 동의 완료 marketing={}", userId, marketingAgreed);
+    }
+
+    // 마케팅 동의 업데이트
+    @Transactional
+    public void updateMarketingConsent(Long userId, boolean marketingAgreed) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("유저 없음"));
+        user.updateMarketingAgreed(marketingAgreed);
+    }
+
     @Transactional
     public void withdraw(Long userId) {
         User user = userRepository.findById(userId)
@@ -62,7 +73,6 @@ public class AuthService {
         tokenService.revokeAllTokens(userId);
     }
 
-    // 닉네임 수정
     @Transactional
     public User updateNickname(Long userId, String nickname) {
         if (nickname == null || nickname.isBlank()) {
@@ -72,7 +82,6 @@ public class AuthService {
         if (trimmed.length() < 2 || trimmed.length() > 12) {
             throw new IllegalArgumentException("닉네임은 2~12자로 입력해주세요.");
         }
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저 없음"));
         user.updateNickname(trimmed);
@@ -93,10 +102,7 @@ public class AuthService {
     private void saveLoginHistory(User user, String ip, String deviceInfo,
                                   LoginHistory.LoginStatus status) {
         loginHistoryRepository.save(LoginHistory.builder()
-                .user(user)
-                .ipAddress(ip)
-                .deviceInfo(deviceInfo)
-                .status(status)
+                .user(user).ipAddress(ip).deviceInfo(deviceInfo).status(status)
                 .build());
     }
 }
