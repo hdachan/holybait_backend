@@ -34,6 +34,7 @@ public class WorkoutService {
     private final RoutineExerciseRepository routineExerciseRepository;
     private final UserRepository userRepository;
     private final CurrencyService currencyService;
+    private final QuestService questService;
 
     @Transactional
     public SaveResult saveWorkoutLog(
@@ -91,6 +92,9 @@ public class WorkoutService {
                         userId, normalSetCount, log.getId(), routineExerciseId);
             }
         }
+
+        // 퀘스트 진행도 갱신 (첫 운동 기록하기)
+        questService.progressQuest(userId, "log_workout");
 
         return new SaveResult(log, grantedShoeCoin);
     }

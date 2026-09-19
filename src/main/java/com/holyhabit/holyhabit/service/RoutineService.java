@@ -22,6 +22,7 @@ public class RoutineService {
     private final WorkoutLogRepository workoutLogRepository;
     private final WorkoutSetRepository workoutSetRepository;
     private final UserRepository userRepository;
+    private final QuestService questService;
 
     @Transactional(readOnly = true)
     public List<Routine> getRoutines(Long userId) {
@@ -54,12 +55,16 @@ public class RoutineService {
             routineExerciseRepository.save(RoutineExercise.builder()
                     .routine(routine).exercise(exercise).orderIndex(i).build());
         }
+
+        // 퀘스트 진행도 갱신 (첫 루틴 만들기)
+        questService.progressQuest(userId, "create_routine");
+
         return routine;
     }
 
     @Transactional
     public Routine updateRoutine(Long routineId, Long userId,
-            String name, List<Long> exerciseIds) {
+                                 String name, List<Long> exerciseIds) {
         Routine routine = getRoutine(routineId, userId);
         routine.updateName(name);
         deleteRoutineExercisesWithDependencies(routineId);
@@ -75,7 +80,7 @@ public class RoutineService {
 
     @Transactional
     public Routine saveRoutineDetail(Long routineId, Long userId,
-            List<RoutineRequest.ExerciseItem> items) {
+                                     List<RoutineRequest.ExerciseItem> items) {
         Routine routine = getRoutine(routineId, userId);
 
         List<RoutineExercise> existing =

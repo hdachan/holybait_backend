@@ -42,7 +42,7 @@ public class CurrencyService {
     // 신발 코인 지급
     @Transactional
     public int grantShoeCoin(Long userId, int currentSetCount,
-                              Long workoutLogId, Long routineExerciseId) {
+                             Long workoutLogId, Long routineExerciseId) {
 
         LocalDate todayKst = LocalDate.now(KST);
         LocalDateTime from = todayKst.atStartOfDay();
@@ -128,7 +128,6 @@ public class CurrencyService {
         }
 
         // shoeCoin 차감 — 음수로 currency_logs 기록
-        // UserCurrency 에 spendShoeCoin 메서드 추가 필요
         currency.spendShoeCoin(amount);
 
         CurrencyLog log = CurrencyLog.builder()
@@ -159,4 +158,15 @@ public class CurrencyService {
         currencyLogRepository.save(log);
     }
 
+    // ── 퀘스트 보상용 (QuestService에서 호출) ──
+    @Transactional
+    public void addGold(Long userId, int amount, String reason, Long referenceId) {
+        grantGold(userId, amount, CurrencySource.QUEST, referenceId);
+    }
+
+    @Transactional(readOnly = true)
+    public int getGold(Long userId) {
+        UserCurrency currency = getOrCreate(userId);
+        return currency.getGold();
+    }
 }

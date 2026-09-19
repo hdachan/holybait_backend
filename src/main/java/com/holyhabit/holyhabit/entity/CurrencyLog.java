@@ -6,11 +6,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "currency_logs",
-    indexes = {
-        // 하루 캡 계산 시 빠른 조회를 위한 인덱스
-        @Index(name = "idx_currency_logs_user_type_created",
-               columnList = "user_id, currency_type, created_at")
-    })
+        indexes = {
+                // 하루 캡 계산 시 빠른 조회를 위한 인덱스
+                @Index(name = "idx_currency_logs_user_type_created",
+                        columnList = "user_id, currency_type, created_at")
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -26,7 +26,7 @@ public class CurrencyLog {
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private CurrencyType currencyType;
 
     // 양수 = 획득, 음수 = 소비
@@ -34,7 +34,7 @@ public class CurrencyLog {
     private int amount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private CurrencySource source;
 
     // 연관 ID (workout_log_id, battle_id 등) nullable

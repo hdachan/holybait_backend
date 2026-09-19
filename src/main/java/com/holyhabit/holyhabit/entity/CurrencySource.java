@@ -5,5 +5,6 @@ public enum CurrencySource {
     BATTLE,   // 배틀 보상
     SPEND,    // 소비
     STEP,     // 걷기
-    GACHA     // 가챠
+    GACHA,    // 가챠
+    QUEST     // 퀘스트 보상
 }

@@ -31,6 +31,7 @@ public class AdventureService {
     private final UserCurrencyRepository userCurrencyRepository;
     private final CurrencyLogRepository currencyLogRepository;
     private final CurrencyService currencyService;
+    private final QuestService questService;
 
     private static final Random random = new Random();
 
@@ -159,6 +160,10 @@ public class AdventureService {
         }
         characterStatRepository.deactivateAll(userId);
         target.activate();
+
+        // 퀘스트 진행도 갱신 (캐릭터 확인하기)
+        questService.progressQuest(userId, "check_character");
+
         return target;
     }
 
@@ -256,6 +261,14 @@ public class AdventureService {
             levelsGained = stat.addExpAndLevelUp(expGained);
             currencyService.grantGold(userId, goldGained,
                     CurrencySource.BATTLE, battle.getId());
+
+            // 퀘스트 진행도 갱신 (첫 탐험 떠나기 - 배틀 승리)
+            questService.progressQuest(userId, "battle_win");
+
+            // 레벨업 발생 시 퀘스트 진행도 갱신 (캐릭터 레벨업 확인)
+            if (levelsGained > 0) {
+                questService.progressQuest(userId, "level_up");
+            }
 
             // 캐릭터 드롭 — 몬스터에 지정된 캐릭터 5% 확률
             droppedCharacter = tryDropCharacter(userId, battle.getMonster());
