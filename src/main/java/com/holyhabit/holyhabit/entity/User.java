@@ -51,6 +51,11 @@ public class User {
     @Builder.Default
     private boolean marketingAgreed = false;
 
+    // 누적 걸음수 (구역 입장 조건 등에 사용)
+    @Column(name = "total_steps", nullable = false)
+    @Builder.Default
+    private Long totalSteps = 0L;
+
     private LocalDateTime lastLoginAt;
     private LocalDateTime deletedAt;
 
@@ -96,5 +101,11 @@ public class User {
     // 마케팅 동의 업데이트
     public void updateMarketingAgreed(boolean marketingAgreed) {
         this.marketingAgreed = marketingAgreed;
+    }
+
+    // 누적 걸음수 증가 (걸음수 저장 시 증분만큼 호출)
+    public void addTotalSteps(long delta) {
+        if (delta <= 0) return;
+        this.totalSteps += delta;
     }
 }

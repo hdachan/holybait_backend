@@ -91,14 +91,28 @@ public class StepService {
 
         stepLogRepository.findByUserIdAndLoggedDate(userId, date)
                 .ifPresentOrElse(
-                        // 이미 있으면 업데이트 (더 많이 걸은 경우 대비)
-                        existing -> existing.updateStepCount(stepCount),
-                        // 없으면 새로 저장
-                        () -> stepLogRepository.save(StepLog.builder()
-                                .user(user)
-                                .stepCount(stepCount)
-                                .loggedDate(date)
-                                .build())
+                        // 이미 있으면 업데이트 (더 많이 걸은 경우 대비, 차이만큼 누적치 반영)
+                        existing -> {
+                            int previous = existing.getStepCount();
+                            if (stepCount > previous) {
+                                long delta = stepCount - previous;
+                                existing.updateStepCount(stepCount);
+                                user.addTotalSteps(delta);
+                                log.info("userId={} 누적걸음수 +{} (총 {})",
+                                        userId, delta, user.getTotalSteps());
+                            }
+                        },
+                        // 없으면 새로 저장 → 전체 stepCount만큼 누적치 증가
+                        () -> {
+                            stepLogRepository.save(StepLog.builder()
+                                    .user(user)
+                                    .stepCount(stepCount)
+                                    .loggedDate(date)
+                                    .build());
+                            user.addTotalSteps(stepCount);
+                            log.info("userId={} 누적걸음수 +{} (총 {})",
+                                    userId, stepCount, user.getTotalSteps());
+                        }
                 );
 
         log.info("userId={} 걸음 수 저장 date={} steps={}", userId, date, stepCount);

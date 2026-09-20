@@ -203,6 +203,13 @@ public class AdventureService {
             throw new RuntimeException("레벨이 부족합니다. (필요: Lv" + stage.getMinLevel() + ")");
         }
 
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
+        if (user.getTotalSteps() < stage.getRequiredSteps()) {
+            throw new RuntimeException(
+                    "누적 걸음수가 부족합니다. (필요: " + stage.getRequiredSteps() + "보)");
+        }
+
         var currency = currencyService.getCurrency(userId);
         if (currency.getShoeCoin() < stage.getShoeCoinCost()) {
             throw new RuntimeException("신발코인이 부족합니다.");

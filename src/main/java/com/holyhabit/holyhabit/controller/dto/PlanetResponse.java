@@ -39,6 +39,7 @@ public class PlanetResponse {
         private final int minLevel;
         private final int maxLevel;
         private final int shoeCoinCost;
+        private final long requiredSteps;
         private final String imageKey;
         private final int sortOrder;
 
@@ -49,6 +50,7 @@ public class PlanetResponse {
             this.minLevel = stage.getMinLevel();
             this.maxLevel = stage.getMaxLevel();
             this.shoeCoinCost = stage.getShoeCoinCost();
+            this.requiredSteps = stage.getRequiredSteps();
             this.imageKey = stage.getImageKey();
             this.sortOrder = sortOrder;
         }

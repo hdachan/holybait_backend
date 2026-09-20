@@ -118,7 +118,8 @@ public class AuthController {
                 "status",           user.getStatus(),
                 "createdAt",        user.getCreatedAt().toString(),
                 "marketingAgreed",  user.isMarketingAgreed(),
-                "consentCompleted", user.isConsentCompleted()
+                "consentCompleted", user.isConsentCompleted(),
+                "totalSteps",       user.getTotalSteps()
         );
     }
 }
