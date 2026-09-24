@@ -54,10 +54,22 @@ public class UserQuest {
         this.createdAt = LocalDateTime.now();
     }
 
-    // ── 진행도 증가 ──
+    // ── 진행도 증가 (일반 퀘스트 - 행동 발생마다 +amount) ──
     public void increaseProgress(int amount) {
         if ("claimed".equals(this.status)) return;
         this.progress += amount;
+        if (this.progress >= this.quest.getTargetCount()
+                && !"completed".equals(this.status)
+                && !"claimed".equals(this.status)) {
+            this.status = "completed";
+            this.completedAt = LocalDateTime.now();
+        }
+    }
+
+    // ── 진행도 직접 설정 (achievement - 누적값 그대로 반영, ex: total_steps) ──
+    public void setProgressValue(int value) {
+        if ("claimed".equals(this.status)) return;
+        this.progress = value;
         if (this.progress >= this.quest.getTargetCount()
                 && !"completed".equals(this.status)
                 && !"claimed".equals(this.status)) {

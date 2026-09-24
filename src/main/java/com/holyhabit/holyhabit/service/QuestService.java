@@ -63,8 +63,9 @@ public class QuestService {
         initUserQuestsIfNeeded(userId, type, periodKey);
 
         List<UserQuest> userQuests;
-        if ("tutorial".equals(type)) {
-            userQuests = userQuestRepository.findTutorialByUserId(userId);
+        if (periodKey == null) {
+            // tutorial, achievement 등 periodKey 없는 타입
+            userQuests = userQuestRepository.findByUserIdAndTypeNoPeriod(userId, type);
         } else {
             userQuests = userQuestRepository
                     .findAllByUserIdAndTypeAndPeriodKey(userId, type, periodKey);
@@ -142,6 +143,26 @@ public class QuestService {
         List<UserQuest> weeklyTargets = userQuestRepository
                 .findInProgressByUserIdAndActionType(userId, actionType, thisWeekPeriodKey());
         applyProgress(userId, weeklyTargets, amount);
+    }
+
+    // ── 누적값 기준 진행도 "설정" (achievement 등, total_steps 같은 값) ──
+    // increaseProgress와 달리 현재 값을 그대로 progress에 반영
+    @Transactional
+    public void setProgressValue(Long userId, String actionType, long currentValue) {
+        // achievement는 periodKey가 null
+        List<UserQuest> targets = userQuestRepository
+                .findInProgressByUserIdAndActionType(userId, actionType, null);
+
+        for (UserQuest uq : targets) {
+            int target = uq.getQuest().getTargetCount();
+            int newProgress = (int) Math.min(currentValue, target);
+            if (newProgress > uq.getProgress()) {
+                uq.setProgressValue(newProgress);
+                if (uq.isCompleted()) {
+                    log.info("userId={} 업적 달성: {}", userId, uq.getQuest().getTitle());
+                }
+            }
+        }
     }
 
     private void applyProgress(Long userId, List<UserQuest> targets, int amount) {

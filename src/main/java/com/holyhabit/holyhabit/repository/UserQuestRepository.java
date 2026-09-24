@@ -38,6 +38,17 @@ public interface UserQuestRepository extends JpaRepository<UserQuest, Long> {
             "ORDER BY q.sortOrder")
     List<UserQuest> findTutorialByUserId(@Param("userId") Long userId);
 
+    // periodKey 없는 타입 전체 조회 (tutorial, achievement 등 범용)
+    @Query("SELECT uq FROM UserQuest uq " +
+            "JOIN FETCH uq.quest q " +
+            "WHERE uq.user.id = :userId AND q.type = :type " +
+            "AND uq.periodKey IS NULL " +
+            "ORDER BY q.sortOrder")
+    List<UserQuest> findByUserIdAndTypeNoPeriod(
+            @Param("userId") Long userId,
+            @Param("type") String type
+    );
+
     // daily/weekly 목록 조회 (현재 periodKey 기준)
     @Query("SELECT uq FROM UserQuest uq " +
             "JOIN FETCH uq.quest q " +

@@ -25,6 +25,7 @@ public class StepService {
     private final UserRepository userRepository;
     private final UserCurrencyRepository userCurrencyRepository;
     private final CurrencyLogRepository currencyLogRepository;
+    private final QuestService questService;
 
     // 걸음 수 보상 받기 (유저가 버튼 누를 때)
     @Transactional
@@ -114,6 +115,9 @@ public class StepService {
                                     userId, stepCount, user.getTotalSteps());
                         }
                 );
+
+        // 누적 걸음수 기준 achievement 퀘스트 진행도 갱신
+        questService.setProgressValue(userId, "total_steps", user.getTotalSteps());
 
         log.info("userId={} 걸음 수 저장 date={} steps={}", userId, date, stepCount);
     }
