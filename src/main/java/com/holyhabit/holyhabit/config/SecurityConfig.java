@@ -30,7 +30,12 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/login", "/auth/refresh").permitAll()
+                        .requestMatchers(
+                                "/auth/login",
+                                "/auth/refresh",
+                                "/app/version",   // 로그인 전 스플래시에서 호출
+                                "/error"          // 예외 발생 시 실제 에러가 403으로 가려지지 않도록
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
