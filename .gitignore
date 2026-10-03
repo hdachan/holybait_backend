@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### 비밀 설정 (DB 비밀번호, JWT secret) ###
+src/main/resources/application-local.yml
