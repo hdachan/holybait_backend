@@ -38,7 +38,8 @@ public class TokenService {
     }
 
     // Access Token 재발급 + Rotation
-    @Transactional
+    // 재사용 감지 시 전체 세션 폐기가 예외와 함께 롤백되지 않도록 noRollbackFor 지정
+    @Transactional(noRollbackFor = TokenReuseException.class)
     public TokenPair refresh(String rawRefreshToken, String deviceInfo, String ipAddress) {
         String tokenHash = hash(rawRefreshToken);
         RefreshToken stored = refreshTokenRepository.findByTokenHash(tokenHash)
@@ -48,7 +49,7 @@ public class TokenService {
         if (stored.isRevoked()) {
             refreshTokenRepository.revokeAllByUserId(stored.getUser().getId());
             log.warn("Reuse detected. All tokens revoked. userId={}", stored.getUser().getId());
-            throw new RuntimeException("401_004");
+            throw new TokenReuseException("401_004");
         }
 
         // 만료 확인

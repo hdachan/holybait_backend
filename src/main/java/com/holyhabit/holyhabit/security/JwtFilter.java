@@ -65,6 +65,12 @@ public class JwtFilter extends OncePerRequestFilter {
                 return;
             }
             case VALID -> {
+                // refresh 토큰은 API 인증에 사용 불가 (로그아웃 후에도 14일간 쓰이는 것 방지)
+                if (!jwtProvider.isAccessToken(token)) {
+                    writeError(response, 401, "401_002", "Not an access token");
+                    return;
+                }
+
                 Long userId = jwtProvider.getUserId(token);
                 User user = userRepository.findById(userId).orElse(null);
 

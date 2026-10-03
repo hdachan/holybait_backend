@@ -51,8 +51,7 @@ public class RoutineService {
         routineRepository.save(routine);
 
         for (int i = 0; i < exerciseIds.size(); i++) {
-            Exercise exercise = exerciseRepository.findById(exerciseIds.get(i))
-                    .orElseThrow(() -> new RuntimeException("운동을 찾을 수 없습니다."));
+            Exercise exercise = getUsableExercise(userId, exerciseIds.get(i));
             routineExerciseRepository.save(RoutineExercise.builder()
                     .routine(routine).exercise(exercise).orderIndex(i).build());
         }
@@ -140,8 +139,8 @@ public class RoutineService {
             if (current != null) {
                 current.updateOrderAndSuperset(slot.orderIndex(), slot.supersetGroup());
             } else {
-                Exercise exercise = exerciseRepository.findById(slot.exerciseId())
-                        .orElseThrow(() -> new RuntimeException("운동을 찾을 수 없습니다."));
+                Exercise exercise = getUsableExercise(
+                        routine.getUser().getId(), slot.exerciseId());
                 routineExerciseRepository.save(RoutineExercise.builder()
                         .routine(routine)
                         .exercise(exercise)
@@ -150,6 +149,17 @@ public class RoutineService {
                         .build());
             }
         }
+    }
+
+    // 기본 운동이거나 본인이 만든 커스텀 운동만 루틴에 넣을 수 있음
+    private Exercise getUsableExercise(Long userId, Long exerciseId) {
+        Exercise exercise = exerciseRepository.findById(exerciseId)
+                .orElseThrow(() -> new RuntimeException("운동을 찾을 수 없습니다."));
+        if (exercise.isCustom()
+                && (exercise.getUser() == null || !exercise.getUser().getId().equals(userId))) {
+            throw new RuntimeException("사용할 수 없는 운동입니다.");
+        }
+        return exercise;
     }
 
     private record ExerciseSlot(Long exerciseId, int orderIndex, Integer supersetGroup) {}
