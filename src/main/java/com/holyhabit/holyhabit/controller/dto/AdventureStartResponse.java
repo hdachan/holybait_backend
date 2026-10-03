@@ -1,5 +1,6 @@
 package com.holyhabit.holyhabit.controller.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.holyhabit.holyhabit.entity.Battle;
 import com.holyhabit.holyhabit.entity.CharacterStat;
 import com.holyhabit.holyhabit.entity.Monster;
@@ -65,5 +66,9 @@ public class AdventureStartResponse {
             this.playerHpAfter = e.playerHpAfter();
             this.monsterHpAfter = e.monsterHpAfter();
         }
+
+        // isDoubleAttack → Jackson 이 "doubleAttack" 으로 직렬화하는 걸 방지
+        @JsonProperty("isDoubleAttack")
+        public boolean isDoubleAttack() { return isDoubleAttack; }
     }
 }
