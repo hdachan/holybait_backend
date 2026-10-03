@@ -27,22 +27,22 @@ public interface CurrencyLogRepository extends JpaRepository<CurrencyLog, Long> 
             LocalDateTime to
     );
 
-    // 오늘 특정 운동(routineExercise)에서 이미 받은 코인 합산
+    // 오늘 특정 운동(exercise)에서 이미 받은 코인 합산 — 어느 루틴에서 했든 운동 기준
     @Query("""
         SELECT COALESCE(SUM(cl.amount), 0)
         FROM CurrencyLog cl
         JOIN WorkoutLog wl ON wl.id = cl.referenceId
         WHERE cl.user.id = :userId
           AND cl.currencyType = :currencyType
-          AND wl.routineExercise.id = :routineExerciseId
+          AND wl.exercise.id = :exerciseId
           AND cl.amount > 0
           AND cl.createdAt >= :from
           AND cl.createdAt < :to
         """)
-    int sumAmountByUserAndTypeAndReferenceRoutineExercise(
+    int sumAmountByUserAndTypeAndReferenceExercise(
             Long userId,
             CurrencyType currencyType,
-            Long routineExerciseId,
+            Long exerciseId,
             LocalDateTime from,
             LocalDateTime to
     );

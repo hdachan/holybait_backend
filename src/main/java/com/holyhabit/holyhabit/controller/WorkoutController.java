@@ -8,7 +8,6 @@ import com.holyhabit.holyhabit.controller.dto.WorkoutRequest;
 import com.holyhabit.holyhabit.controller.dto.WorkoutResponse;
 import com.holyhabit.holyhabit.entity.WorkoutLog;
 import com.holyhabit.holyhabit.entity.WorkoutSet;
-import com.holyhabit.holyhabit.repository.WorkoutLogRepository;
 import com.holyhabit.holyhabit.repository.WorkoutSetRepository;
 import com.holyhabit.holyhabit.security.CustomUserDetails;
 import com.holyhabit.holyhabit.service.WorkoutService;
@@ -28,7 +27,6 @@ public class WorkoutController {
 
     private final WorkoutService workoutService;
     private final WorkoutSetRepository workoutSetRepository;
-    private final WorkoutLogRepository workoutLogRepository;
 
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -58,23 +56,27 @@ public class WorkoutController {
                 new WorkoutResponse(result.log(), savedSets, result.grantedShoeCoin()));
     }
 
-    // 최근 운동 기록 조회
+    // 최근 운동 기록 조회 — 운동 기준 (어느 루틴에서 했든 마지막 기록)
     @GetMapping("/recent/{routineExerciseId}")
     public ResponseEntity<RecentSetsResponse> getRecentSets(
             @PathVariable Long routineExerciseId,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        Optional<WorkoutLog> logOpt = workoutLogRepository
-                .findTopByUserIdAndRoutineExerciseIdOrderByLoggedAtDesc(
-                        userDetails.getUserId(), routineExerciseId);
+        WorkoutService.RecentLogs recent =
+                workoutService.getRecentLogs(userDetails.getUserId(), routineExerciseId);
 
-        if (logOpt.isEmpty()) return ResponseEntity.ok(null);
+        if (recent.latest().isEmpty()) return ResponseEntity.ok(null);
 
-        WorkoutLog log = logOpt.get();
+        WorkoutLog log = recent.latest().get();
         List<WorkoutSet> sets = workoutSetRepository
                 .findAllByWorkoutLogIdOrderBySetNumber(log.getId());
 
-        return ResponseEntity.ok(new RecentSetsResponse(log, sets));
+        WorkoutLog previous = recent.previous().orElse(null);
+        List<WorkoutSet> previousSets = previous != null
+                ? workoutSetRepository.findAllByWorkoutLogIdOrderBySetNumber(previous.getId())
+                : List.of();
+
+        return ResponseEntity.ok(new RecentSetsResponse(log, sets, previous, previousSets));
     }
 
     // 운동 통계

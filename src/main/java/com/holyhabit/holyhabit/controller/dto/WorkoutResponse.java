@@ -18,7 +18,8 @@ public class WorkoutResponse {
 
     public WorkoutResponse(WorkoutLog log, List<WorkoutSet> sets, int grantedShoeCoin) {
         this.id = log.getId();
-        this.routineExerciseId = log.getRoutineExercise().getId();
+        this.routineExerciseId = log.getRoutineExercise() != null
+                ? log.getRoutineExercise().getId() : null;
         this.loggedAt = log.getLoggedAt();
         this.sets = sets.stream()
                 .map(ws -> new SetResponse(ws, log.getLoggedAt()))

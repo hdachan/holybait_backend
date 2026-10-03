@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,7 +22,6 @@ public class RoutineService {
     private final RoutineExerciseRepository routineExerciseRepository;
     private final ExerciseRepository exerciseRepository;
     private final WorkoutLogRepository workoutLogRepository;
-    private final WorkoutSetRepository workoutSetRepository;
     private final UserRepository userRepository;
     private final QuestService questService;
 
@@ -62,44 +63,66 @@ public class RoutineService {
         return routine;
     }
 
+    // 루틴 수정 (form 화면용) — 바뀐 것만 반영, 운동 기록은 보존
     @Transactional
     public Routine updateRoutine(Long routineId, Long userId,
                                  String name, List<Long> exerciseIds) {
         Routine routine = getRoutine(routineId, userId);
         routine.updateName(name);
-        deleteRoutineExercisesWithDependencies(routineId);
 
-        for (int i = 0; i < exerciseIds.size(); i++) {
-            Exercise exercise = exerciseRepository.findById(exerciseIds.get(i))
-                    .orElseThrow(() -> new RuntimeException("운동을 찾을 수 없습니다."));
-            routineExerciseRepository.save(RoutineExercise.builder()
-                    .routine(routine).exercise(exercise).orderIndex(i).build());
+        // form 화면은 슈퍼세트 정보를 모르므로 남아 있는 운동은 기존 그룹 유지
+        Map<Long, Integer> currentGroups = new HashMap<>();
+        for (RoutineExercise re :
+                routineExerciseRepository.findAllByRoutineIdOrderByOrderIndex(routineId)) {
+            currentGroups.putIfAbsent(re.getExercise().getId(), re.getSupersetGroup());
         }
+
+        List<ExerciseSlot> slots = new ArrayList<>();
+        for (int i = 0; i < exerciseIds.size(); i++) {
+            Long exerciseId = exerciseIds.get(i);
+            slots.add(new ExerciseSlot(exerciseId, i, currentGroups.get(exerciseId)));
+        }
+        syncExercises(routine, slots);
         return routine;
     }
 
+    // 편집 모드 전체 저장 (순서 + 슈퍼세트 + 새 운동)
     @Transactional
     public Routine saveRoutineDetail(Long routineId, Long userId,
                                      List<RoutineRequest.ExerciseItem> items) {
         Routine routine = getRoutine(routineId, userId);
+        syncExercises(routine, items.stream()
+                .map(item -> new ExerciseSlot(
+                        item.getExerciseId(), item.getOrderIndex(), item.getSupersetGroup()))
+                .toList());
+        return routine;
+    }
 
+    // 루틴 삭제 — 운동 기록은 남기고 루틴 연결만 끊음
+    @Transactional
+    public void deleteRoutine(Long routineId, Long userId) {
+        getRoutine(routineId, userId);
+        for (RoutineExercise re :
+                routineExerciseRepository.findAllByRoutineIdOrderByOrderIndex(routineId)) {
+            workoutLogRepository.detachRoutineExercise(re.getId());
+        }
+        routineExerciseRepository.deleteAllByRoutineId(routineId);
+        routineRepository.deleteById(routineId);
+    }
+
+    // 루틴의 운동 목록을 slots 와 같게 맞춤
+    // 남는 운동 → 순서·슈퍼세트만 갱신 / 빠진 운동 → 루틴에서만 제거(기록 보존) / 새 운동 → 추가
+    private void syncExercises(Routine routine, List<ExerciseSlot> slots) {
         List<RoutineExercise> existing =
-                routineExerciseRepository.findAllByRoutineIdOrderByOrderIndex(routineId);
+                routineExerciseRepository.findAllByRoutineIdOrderByOrderIndex(routine.getId());
 
-        // 새 목록의 exerciseId 세트
-        Set<Long> newExerciseIds = items.stream()
-                .map(RoutineRequest.ExerciseItem::getExerciseId)
+        Set<Long> newExerciseIds = slots.stream()
+                .map(ExerciseSlot::exerciseId)
                 .collect(Collectors.toSet());
 
-        // 제거된 운동 → workout 데이터 포함해서 삭제
         for (RoutineExercise re : existing) {
             if (!newExerciseIds.contains(re.getExercise().getId())) {
-                List<WorkoutLog> logs =
-                        workoutLogRepository.findAllByRoutineExerciseId(re.getId());
-                for (WorkoutLog log : logs) {
-                    workoutSetRepository.deleteAllByWorkoutLogId(log.getId());
-                }
-                workoutLogRepository.deleteAllByRoutineExerciseId(re.getId());
+                workoutLogRepository.detachRoutineExercise(re.getId());
                 routineExerciseRepository.delete(re);
             }
         }
@@ -112,47 +135,22 @@ public class RoutineService {
                         (a, b) -> a
                 ));
 
-        // 새 목록 처리
-        for (RoutineRequest.ExerciseItem item : items) {
-            if (existingMap.containsKey(item.getExerciseId())) {
-                // 기존 운동 → orderIndex, supersetGroup 만 업데이트 (workout 데이터 보존)
-                existingMap.get(item.getExerciseId())
-                        .updateOrderAndSuperset(item.getOrderIndex(), item.getSupersetGroup());
+        for (ExerciseSlot slot : slots) {
+            RoutineExercise current = existingMap.get(slot.exerciseId());
+            if (current != null) {
+                current.updateOrderAndSuperset(slot.orderIndex(), slot.supersetGroup());
             } else {
-                // 새 운동 추가
-                Exercise exercise = exerciseRepository.findById(item.getExerciseId())
+                Exercise exercise = exerciseRepository.findById(slot.exerciseId())
                         .orElseThrow(() -> new RuntimeException("운동을 찾을 수 없습니다."));
                 routineExerciseRepository.save(RoutineExercise.builder()
                         .routine(routine)
                         .exercise(exercise)
-                        .orderIndex(item.getOrderIndex())
-                        .supersetGroup(item.getSupersetGroup())
+                        .orderIndex(slot.orderIndex())
+                        .supersetGroup(slot.supersetGroup())
                         .build());
             }
         }
-
-        return routine;
     }
 
-    @Transactional
-    public void deleteRoutine(Long routineId, Long userId) {
-        getRoutine(routineId, userId);
-        deleteRoutineExercisesWithDependencies(routineId);
-        routineRepository.deleteById(routineId);
-    }
-
-    // 루틴 삭제 시 전체 삭제 (FK 순서 지키기)
-    private void deleteRoutineExercisesWithDependencies(Long routineId) {
-        List<RoutineExercise> exercises =
-                routineExerciseRepository.findAllByRoutineIdOrderByOrderIndex(routineId);
-        for (RoutineExercise re : exercises) {
-            List<WorkoutLog> logs =
-                    workoutLogRepository.findAllByRoutineExerciseId(re.getId());
-            for (WorkoutLog log : logs) {
-                workoutSetRepository.deleteAllByWorkoutLogId(log.getId());
-            }
-            workoutLogRepository.deleteAllByRoutineExerciseId(re.getId());
-        }
-        routineExerciseRepository.deleteAllByRoutineId(routineId);
-    }
+    private record ExerciseSlot(Long exerciseId, int orderIndex, Integer supersetGroup) {}
 }

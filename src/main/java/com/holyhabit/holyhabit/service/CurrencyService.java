@@ -42,7 +42,7 @@ public class CurrencyService {
     // 신발 코인 지급
     @Transactional
     public int grantShoeCoin(Long userId, int currentSetCount,
-                             Long workoutLogId, Long routineExerciseId) {
+                             Long workoutLogId, Long exerciseId) {
 
         LocalDate todayKst = LocalDate.now(KST);
         LocalDateTime from = todayKst.atStartOfDay();
@@ -58,16 +58,16 @@ public class CurrencyService {
         }
 
         // 오늘 이 운동에서 이미 받은 코인 수
-        // = 오늘 이 routineExercise 의 workout_logs 에서 currency_logs 를 통해 계산
+        // = 오늘 이 운동(exercise)의 workout_logs 에서 currency_logs 를 통해 계산
         int alreadyGrantedForThisExercise = currencyLogRepository
-                .sumAmountByUserAndTypeAndReferenceRoutineExercise(
-                        userId, CurrencyType.SHOE_COIN, routineExerciseId, from, to);
+                .sumAmountByUserAndTypeAndReferenceExercise(
+                        userId, CurrencyType.SHOE_COIN, exerciseId, from, to);
 
         // 새로 지급할 양 = 현재 세트 수 - 이미 받은 양
         int newGrant = currentSetCount - alreadyGrantedForThisExercise;
         if (newGrant <= 0) {
-            log.debug("userId={} routineExerciseId={} 새 세트 없음 (current={}, alreadyGranted={})",
-                    userId, routineExerciseId, currentSetCount, alreadyGrantedForThisExercise);
+            log.debug("userId={} exerciseId={} 새 세트 없음 (current={}, alreadyGranted={})",
+                    userId, exerciseId, currentSetCount, alreadyGrantedForThisExercise);
             return 0;
         }
 

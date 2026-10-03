@@ -18,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -46,23 +47,25 @@ public class WorkoutService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
 
-        RoutineExercise routineExercise = routineExerciseRepository
-                .findById(routineExerciseId)
-                .orElseThrow(() -> new RuntimeException("루틴 운동을 찾을 수 없습니다."));
+        RoutineExercise routineExercise = getOwnedRoutineExercise(userId, routineExerciseId);
+        Exercise exercise = routineExercise.getExercise();
 
         LocalDate todayKst = LocalDate.now(KST);
         LocalDateTime from = todayKst.atStartOfDay();
         LocalDateTime to = todayKst.plusDays(1).atStartOfDay();
 
+        // 운동 기준 — 같은 날 같은 운동은 어느 루틴에서 저장하든 기록 1개
         WorkoutLog log = workoutLogRepository
-                .findTodayLog(userId, routineExerciseId, from, to)
+                .findTodayLog(userId, exercise.getId(), from, to)
                 .orElse(null);
 
         if (log != null) {
             workoutSetRepository.deleteAllByWorkoutLogId(log.getId());
+            log.updateRoutineExercise(routineExercise);
         } else {
             log = WorkoutLog.builder()
                     .user(user)
+                    .exercise(exercise)
                     .routineExercise(routineExercise)
                     .loggedAt(LocalDateTime.now())
                     .build();
@@ -89,7 +92,7 @@ public class WorkoutService {
                     .count();
             if (normalSetCount > 0) {
                 grantedShoeCoin = currencyService.grantShoeCoin(
-                        userId, normalSetCount, log.getId(), routineExerciseId);
+                        userId, normalSetCount, log.getId(), exercise.getId());
             }
         }
 
@@ -97,6 +100,33 @@ public class WorkoutService {
         questService.progressQuest(userId, "log_workout");
 
         return new SaveResult(log, grantedShoeCoin);
+    }
+
+    // 운동 입력 화면용 — 운동 기준 (루틴 A·B 어디서 했든)
+    // latest: 가장 최근 기록 (오늘이면 입력칸에 채움) / previous: 오늘 이전의 가장 최근 기록
+    @Transactional(readOnly = true)
+    public RecentLogs getRecentLogs(Long userId, Long routineExerciseId) {
+        Long exerciseId = getOwnedRoutineExercise(userId, routineExerciseId)
+                .getExercise().getId();
+        LocalDateTime todayStart = LocalDate.now(KST).atStartOfDay();
+        return new RecentLogs(
+                workoutLogRepository.findTopByUserIdAndExerciseIdOrderByLoggedAtDesc(
+                        userId, exerciseId),
+                workoutLogRepository.findTopByUserIdAndExerciseIdAndLoggedAtBeforeOrderByLoggedAtDesc(
+                        userId, exerciseId, todayStart));
+    }
+
+    public record RecentLogs(Optional<WorkoutLog> latest, Optional<WorkoutLog> previous) {}
+
+    // 본인 루틴의 운동인지 확인
+    private RoutineExercise getOwnedRoutineExercise(Long userId, Long routineExerciseId) {
+        RoutineExercise routineExercise = routineExerciseRepository
+                .findById(routineExerciseId)
+                .orElseThrow(() -> new RuntimeException("루틴 운동을 찾을 수 없습니다."));
+        if (!routineExercise.getRoutine().getUser().getId().equals(userId)) {
+            throw new RuntimeException("본인 루틴의 운동이 아닙니다.");
+        }
+        return routineExercise;
     }
 
     // 내가 운동한 종목 목록
@@ -108,12 +138,12 @@ public class WorkoutService {
         // exerciseId 기준으로 그룹핑
         Map<Long, List<WorkoutLog>> grouped = logs.stream()
                 .collect(Collectors.groupingBy(
-                        log -> log.getRoutineExercise().getExercise().getId()));
+                        log -> log.getExercise().getId()));
 
         List<WorkoutHistoryResponse> result = new ArrayList<>();
         for (Map.Entry<Long, List<WorkoutLog>> entry : grouped.entrySet()) {
             WorkoutLog latest = entry.getValue().get(0); // 최신 기록
-            Exercise exercise = latest.getRoutineExercise().getExercise();
+            Exercise exercise = latest.getExercise();
 
             result.add(new WorkoutHistoryResponse(
                     exercise.getId(),
@@ -195,7 +225,7 @@ public class WorkoutService {
 
         // 총 운동 종목 수 (중복 제거)
         long totalExercises = allLogs.stream()
-                .map(l -> l.getRoutineExercise().getExercise().getId())
+                .map(l -> l.getExercise().getId())
                 .distinct()
                 .count();
 
