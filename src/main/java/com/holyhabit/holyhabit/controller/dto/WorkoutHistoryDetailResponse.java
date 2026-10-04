@@ -1,5 +1,6 @@
 package com.holyhabit.holyhabit.controller.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -19,5 +20,9 @@ public class WorkoutHistoryDetailResponse {
         private final Double weightKg;
         private final Integer reps;
         private final boolean isDropset;
+
+        // isDropset → Jackson 이 "dropset" 으로 직렬화하는 걸 방지
+        @JsonProperty("isDropset")
+        public boolean isDropset() { return isDropset; }
     }
 }

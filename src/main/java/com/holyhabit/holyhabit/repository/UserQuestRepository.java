@@ -61,12 +61,16 @@ public interface UserQuestRepository extends JpaRepository<UserQuest, Long> {
             @Param("periodKey") String periodKey
     );
 
-    // 특정 actionType 진행 중인 퀘스트 (tutorial 포함 전체)
+    // 특정 actionType 진행 중인 퀘스트 — 한 번 호출에 한 종류만
+    // currentPeriodKey == null → 기간 없는 퀘스트(tutorial/achievement)만
+    // currentPeriodKey != null → 그 기간 퀘스트(오늘 daily 또는 이번 주 weekly)만
+    // (예전 조건은 매 호출마다 기간 없는 퀘스트도 같이 찾아 한 번 행동에 2~3씩 올라갔음)
     @Query("SELECT uq FROM UserQuest uq " +
             "JOIN FETCH uq.quest q " +
             "WHERE uq.user.id = :userId AND q.actionType = :actionType " +
             "AND uq.status = 'in_progress' " +
-            "AND (uq.periodKey IS NULL OR uq.periodKey = :currentPeriodKey OR :currentPeriodKey IS NULL)")
+            "AND ((:currentPeriodKey IS NULL AND uq.periodKey IS NULL) " +
+            "     OR uq.periodKey = :currentPeriodKey)")
     List<UserQuest> findInProgressByUserIdAndActionType(
             @Param("userId") Long userId,
             @Param("actionType") String actionType,
