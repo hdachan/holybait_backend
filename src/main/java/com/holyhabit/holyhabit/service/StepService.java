@@ -19,6 +19,8 @@ public class StepService {
 
     private static final int DAILY_SHOE_COIN_CAP = 20;
     private static final int STEPS_PER_COIN = 1000;
+    private static final int MAX_DAILY_STEPS = 100_000;      // 하루 최대 인정 걸음
+    private static final int MAX_STEP_LOG_DAYS_AGO = 3;      // 며칠 전 날짜까지 저장 허용
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final StepLogRepository stepLogRepository;
@@ -29,7 +31,8 @@ public class StepService {
 
     // 걸음 수 보상 받기 (유저가 버튼 누를 때)
     @Transactional
-    public StepRewardResponse claimStepReward(Long userId, int totalSteps) {
+    public StepRewardResponse claimStepReward(Long userId, int rawTotalSteps) {
+        int totalSteps = Math.max(0, Math.min(rawTotalSteps, MAX_DAILY_STEPS));
 
         LocalDate todayKst = LocalDate.now(KST);
         LocalDateTime from = todayKst.atStartOfDay();
@@ -85,10 +88,29 @@ public class StepService {
     }
 
     // 걸음 수 저장 (자정 — 다음날 앱 켤 때 어제 걸음 수 전송)
+    // 걸음은 폰에서 오는 값이라 진위를 증명할 수 없음 → 상식 범위만 허용
+    // 범위 밖 날짜는 에러 대신 저장하지 않고 넘김 (앱이 같은 날짜를 계속 재전송하지 않도록)
     @Transactional
-    public void saveStepLog(Long userId, int stepCount, LocalDate date) {
+    public void saveStepLog(Long userId, int rawStepCount, LocalDate date) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
+
+        LocalDate todayKst = LocalDate.now(KST);
+        if (date == null
+                || date.isAfter(todayKst)                                  // 미래 날짜
+                || date.isBefore(todayKst.minusDays(MAX_STEP_LOG_DAYS_AGO)) // 너무 오래된 날짜
+                || date.isBefore(user.getCreatedAt().toLocalDate())) {     // 가입 전 날짜
+            log.warn("userId={} 걸음 저장 무시 — 허용 범위 밖 날짜 date={} steps={}",
+                    userId, date, rawStepCount);
+            return;
+        }
+
+        // 하루 최대 걸음까지만 인정 (넘는 값은 거부하지 않고 상한으로 맞춤)
+        int stepCount = Math.max(0, Math.min(rawStepCount, MAX_DAILY_STEPS));
+        if (stepCount != rawStepCount) {
+            log.warn("userId={} 걸음 수 상한 적용 date={} {} → {}",
+                    userId, date, rawStepCount, stepCount);
+        }
 
         stepLogRepository.findByUserIdAndLoggedDate(userId, date)
                 .ifPresentOrElse(
