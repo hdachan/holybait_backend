@@ -38,9 +38,10 @@ public class PendingBattleResponse {
         this.monsterAtk = monster.getAtk();
         this.monsterDef = monster.getDef();
         this.monsterImageKey = monster.getImageKey();
-        this.playerMaxHp = stat.getMaxHp();
-        this.playerAtk = stat.getAtk();
-        this.playerDef = stat.getDef();
+        // 배틀 당시 스탯 (이전 배틀은 기록이 없어 캐릭터의 현재 스탯)
+        this.playerMaxHp = battle.getPlayerMaxHp() != null ? battle.getPlayerMaxHp() : stat.getMaxHp();
+        this.playerAtk = battle.getPlayerAtk() != null ? battle.getPlayerAtk() : stat.getAtk();
+        this.playerDef = battle.getPlayerDef() != null ? battle.getPlayerDef() : stat.getDef();
         this.logs = logs.stream()
                 .map(bl -> new AdventureStartResponse.TurnLog(
                         new BattleLogEntry(

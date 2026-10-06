@@ -174,11 +174,22 @@ public class AdventureService {
                 .findTopByUserIdAndRewardsClaimedFalseOrderByCreatedAtDesc(userId)
                 .map(battle -> {
                     Monster monster = battle.getMonster();
-                    CharacterStat stat = getActiveStat(userId);
+                    CharacterStat stat = getBattleStat(userId, battle);
                     List<BattleLog> logs =
                             battleLogRepository.findAllByBattleIdOrderByTurnAsc(battle.getId());
                     return new PendingBattleResponse(battle, monster, stat, logs);
                 });
+    }
+
+    // 배틀한 캐릭터 — 기록이 없거나(이전 배틀) 캐릭터가 삭제됐으면 현재 착용 캐릭터
+    private CharacterStat getBattleStat(Long userId, Battle battle) {
+        Long statId = battle.getCharacterStatId();
+        if (statId != null) {
+            Optional<CharacterStat> stat = characterStatRepository.findById(statId)
+                    .filter(s -> s.getUser().getId().equals(userId));
+            if (stat.isPresent()) return stat.get();
+        }
+        return getActiveStat(userId);
     }
 
     // 배틀 포기
@@ -225,6 +236,10 @@ public class AdventureService {
                 .user(userRepository.getReferenceById(userId))
                 .monster(monster)
                 .result(calc.result())
+                .characterStatId(stat.getId())
+                .playerMaxHp(stat.getMaxHp())
+                .playerAtk(stat.getAtk())
+                .playerDef(stat.getDef())
                 .build();
         battleRepository.save(battle);
 
@@ -255,7 +270,8 @@ public class AdventureService {
 
         battle.claimRewards();
 
-        CharacterStat stat = getActiveStat(userId);
+        // 보상은 배틀한 캐릭터에게 (도중에 착용 캐릭터를 바꿨어도)
+        CharacterStat stat = getBattleStat(userId, battle);
         int expGained = 0;
         int goldGained = 0;
         int levelsGained = 0;

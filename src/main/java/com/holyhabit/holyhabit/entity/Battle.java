@@ -33,6 +33,13 @@ public class Battle {
     @Builder.Default
     private boolean rewardsClaimed = false;
 
+    // 배틀한 캐릭터와 그때 스탯 — 이어하기 화면과 보상 지급에 사용
+    // (FK 없이 id만 저장: 캐릭터를 삭제해도 배틀 기록이 막히지 않도록. 이전 배틀은 null)
+    private Long characterStatId;
+    private Integer playerMaxHp;
+    private Integer playerAtk;
+    private Integer playerDef;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
