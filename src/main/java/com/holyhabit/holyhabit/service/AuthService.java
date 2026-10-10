@@ -21,6 +21,7 @@ public class AuthService {
     private final LoginHistoryRepository loginHistoryRepository;
     private final OAuthService oAuthService;
     private final TokenService tokenService;
+    private final UserDeletionService userDeletionService;
     private final JwtProvider jwtProvider;
 
     @Transactional
@@ -67,10 +68,8 @@ public class AuthService {
 
     @Transactional
     public void withdraw(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("유저 없음"));
-        user.softDelete();
-        tokenService.revokeAllTokens(userId);
+        // 데이터 즉시 삭제 + 개인정보 지우기 (토큰도 함께 삭제됨)
+        userDeletionService.deleteUserData(userId);
     }
 
     @Transactional

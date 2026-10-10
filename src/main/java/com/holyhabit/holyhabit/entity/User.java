@@ -84,6 +84,17 @@ public class User {
         this.deletedAt = LocalDateTime.now();
     }
 
+    // 탈퇴 — 개인정보를 지우고 번호만 남김 (컬럼이 NOT NULL이라 빈 값 대신 표시용 값)
+    // providerId를 바꾸므로 같은 구글 계정으로 다시 로그인하면 새 계정으로 가입됨
+    public void anonymize() {
+        softDelete();
+        this.email = "deleted-" + this.id;
+        this.nickname = "탈퇴한 사용자";
+        this.providerId = "deleted-" + this.id;
+        this.totalSteps = 0L;
+        this.marketingAgreed = false;
+    }
+
     public void updateNickname(String nickname) { this.nickname = nickname; }
 
     public boolean expandSlot() {
