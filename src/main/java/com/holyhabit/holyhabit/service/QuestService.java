@@ -87,21 +87,18 @@ public class QuestService {
     // 유저가 처음 조회할 때 (또는 새 주기 시작 시) UserQuest 자동 생성
     @Transactional
     public void initUserQuestsIfNeeded(Long userId, String type, String periodKey) {
-        User user = userRepository.findById(userId)
+        // 유저 행을 먼저 잠가 같은 유저의 동시 요청을 한 줄로 세움
+        // (튜토리얼·업적은 periodKey가 NULL이라 MySQL 유니크 제약이 중복을 막지 못함)
+        // ⚠️ 잠금은 이 트랜잭션의 첫 조회여야 함 — MySQL 기본 격리 수준(REPEATABLE READ)은
+        //    첫 일반 조회 시점의 데이터를 계속 보여주므로, 잠금 전에 조회하면
+        //    다른 요청이 방금 만든 행을 못 보고 또 만들 수 있음
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
 
         List<Quest> quests = questRepository.findAllByTypeAndIsActiveTrueOrderBySortOrder(type);
 
         for (Quest quest : quests) {
-            boolean exists;
-            if (periodKey == null) {
-                exists = userQuestRepository
-                        .findByUserIdAndQuestIdNoPeriod(userId, quest.getId()).isPresent();
-            } else {
-                exists = userQuestRepository
-                        .findByUserIdAndQuestIdAndPeriodKey(userId, quest.getId(), periodKey)
-                        .isPresent();
-            }
+            boolean exists = userQuestExists(userId, quest.getId(), periodKey);
 
             if (!exists) {
                 userQuestRepository.save(UserQuest.builder()
@@ -115,6 +112,14 @@ public class QuestService {
                         userId, quest.getTitle(), periodKey);
             }
         }
+    }
+
+    private boolean userQuestExists(Long userId, Long questId, String periodKey) {
+        if (periodKey == null) {
+            return userQuestRepository.findByUserIdAndQuestIdNoPeriod(userId, questId).isPresent();
+        }
+        return userQuestRepository
+                .findByUserIdAndQuestIdAndPeriodKey(userId, questId, periodKey).isPresent();
     }
 
     // ── 특정 행동 발생 시 진행도 갱신 (다른 서비스에서 호출) ──

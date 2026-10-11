@@ -37,6 +37,7 @@ public class AdventureService {
 
     // 배틀 승리 시 캐릭터 드롭 확률 5%
     private static final double CHARACTER_DROP_CHANCE = 0.05;
+    private static final int MAX_BATTLE_TURNS = 50;
 
     // 캐릭터 삭제 (마지막 1마리 삭제 불가, 활성 캐릭터 삭제 불가)
     @Transactional
@@ -355,7 +356,10 @@ public class AdventureService {
         List<BattleLogEntry> logs = new ArrayList<>();
         int turn = 0;
 
-        while (playerHp > 0 && monsterHp > 0) {
+        // 턴 상한 (사용자 결정: 50턴, 넘기면 패배)
+        // 정상 배틀은 5~35턴. 방어형(아이언 나이트)이 1데미지씩 주고받으면 수백 턴까지 길어져
+        // 재생 시간·battle_logs 저장량이 커지는 것을 막음
+        while (playerHp > 0 && monsterHp > 0 && turn < MAX_BATTLE_TURNS) {
             turn++;
 
             // 플레이어 공격
