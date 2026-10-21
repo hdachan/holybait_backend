@@ -30,6 +30,7 @@ public class QuestService {
     private final UserQuestRepository userQuestRepository;
     private final UserRepository userRepository;
     private final CurrencyService currencyService;
+    private final PeriodQuestService periodQuestService;
 
     // ── 오늘 날짜 기준 periodKey (daily) ──
     // 예: "2026-09-19"
@@ -139,15 +140,24 @@ public class QuestService {
                 .findInProgressByUserIdAndActionType(userId, actionType, null);
         applyProgress(userId, targets, amount);
 
-        // 2) daily (오늘 periodKey)
-        List<UserQuest> dailyTargets = userQuestRepository
-                .findInProgressByUserIdAndActionType(userId, actionType, todayPeriodKey());
-        applyProgress(userId, dailyTargets, amount);
+        // 2) daily (오늘 periodKey) / 3) weekly (이번주 periodKey)
+        // 칸이 없으면 만들고 올림 — 별도 트랜잭션, 실패해도 바깥 작업(운동 저장 등)은 그대로 진행
+        progressPeriodQuest(userId, "daily", todayPeriodKey(), actionType, amount);
+        progressPeriodQuest(userId, "weekly", thisWeekPeriodKey(), actionType, amount);
+    }
 
-        // 3) weekly (이번주 periodKey)
-        List<UserQuest> weeklyTargets = userQuestRepository
-                .findInProgressByUserIdAndActionType(userId, actionType, thisWeekPeriodKey());
-        applyProgress(userId, weeklyTargets, amount);
+    private void progressPeriodQuest(Long userId, String type, String periodKey,
+                                     String actionType, int amount) {
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                periodQuestService.progress(userId, type, periodKey, actionType, amount);
+                return;
+            } catch (Exception e) {
+                // 동시에 같은 칸을 만들다 유니크 제약에 걸린 경우 등 → 한 번 더 (이제 칸이 있음)
+                log.warn("userId={} {} 퀘스트 진행 실패 (시도 {}): {}",
+                        userId, type, attempt, e.getMessage());
+            }
+        }
     }
 
     // ── 누적값 기준 진행도 "설정" (achievement 등, total_steps 같은 값) ──
