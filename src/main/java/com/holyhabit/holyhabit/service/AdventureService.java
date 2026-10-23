@@ -35,8 +35,6 @@ public class AdventureService {
 
     private static final Random random = new Random();
 
-    // 배틀 승리 시 캐릭터 드롭 확률 5%
-    private static final double CHARACTER_DROP_CHANCE = 0.05;
     private static final int MAX_BATTLE_TURNS = 50;
 
     // 캐릭터 삭제 (마지막 1마리 삭제 불가, 활성 캐릭터 삭제 불가)
