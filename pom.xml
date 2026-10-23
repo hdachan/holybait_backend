@@ -123,6 +123,17 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <!-- 운영 jar에 로컬 설정(내 PC DB 비밀번호·로컬 JWT secret)을 넣지 않음 -->
+            <!-- IntelliJ 실행은 target/classes를 읽으므로 영향 없음 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>application-local.yml</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
