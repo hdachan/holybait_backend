@@ -78,6 +78,11 @@ public class AdventureService {
             5000,  // 10번째
     };
 
+    // 전체 가격표 (앱은 GET /shop/prices로 받아서 표시)
+    public static List<Integer> getSlotCosts() {
+        return java.util.Arrays.stream(SLOT_COSTS).boxed().toList();
+    }
+
     public static int getSlotCost(int currentSlotCount) {
         if (currentSlotCount >= 10) return -1;
         return SLOT_COSTS[currentSlotCount];

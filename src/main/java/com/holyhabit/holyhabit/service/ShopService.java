@@ -16,7 +16,7 @@ import java.util.Random;
 @RequiredArgsConstructor
 public class ShopService {
 
-    private static final int GACHA_COST = 1400; // 뽑기 1회 비용
+    public static final int GACHA_COST = 1400; // 뽑기 1회 비용 (앱은 GET /shop/prices로 받아서 표시)
     private static final Random random = new Random();
 
     private final UserRepository userRepository;

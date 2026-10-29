@@ -16,6 +16,7 @@ public class CharacterStatResponse {
     private final int def;
     private final int hp;
     private final int maxHp;
+    private final double doubleAttackChance; // 더블어택 확률 (0.1 = 10%)
 
     public CharacterStatResponse(CharacterStat stat) {
         this.statId = stat.getId();
@@ -30,6 +31,7 @@ public class CharacterStatResponse {
         this.def = stat.getDef();
         this.hp = stat.getHp();
         this.maxHp = stat.getMaxHp();
+        this.doubleAttackChance = stat.getDoubleAttackChance();
     }
 
     public Long getStatId() { return statId; }
@@ -48,4 +50,5 @@ public class CharacterStatResponse {
     public int getDef() { return def; }
     public int getHp() { return hp; }
     public int getMaxHp() { return maxHp; }
+    public double getDoubleAttackChance() { return doubleAttackChance; }
 }
