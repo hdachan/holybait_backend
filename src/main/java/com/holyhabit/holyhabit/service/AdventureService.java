@@ -8,6 +8,7 @@ import com.holyhabit.holyhabit.entity.*;
 import com.holyhabit.holyhabit.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +37,11 @@ public class AdventureService {
     private static final Random random = new Random();
 
     private static final int MAX_BATTLE_TURNS = 50;
+
+    // 신규 유저가 처음 받는 캐릭터 번호 (characters.id, 기본 16 = 홀리)
+    // 운영 DB 번호가 다르면 yml에 game.starter-character-id 로 덮어씀
+    @Value("${game.starter-character-id:16}")
+    private Long starterCharacterId;
 
     // 캐릭터 삭제 (마지막 1마리 삭제 불가, 활성 캐릭터 삭제 불가)
     @Transactional
@@ -141,7 +147,7 @@ public class AdventureService {
         List<CharacterStat> stats = characterStatRepository.findAllByUserId(userId);
         if (stats.isEmpty()) {
             try {
-                stats = createAllDefaultStats(userId);
+                stats = createStarterStat(userId);
             } catch (Exception e) {
                 stats = characterStatRepository.findAllByUserId(userId);
             }
@@ -388,32 +394,31 @@ public class AdventureService {
                 monsterHp <= 0 ? BattleResult.WIN : BattleResult.LOSE, logs);
     }
 
-    private List<CharacterStat> createAllDefaultStats(Long userId) {
+    // 신규 유저에게 시작 캐릭터 1개만 지급 (착용 상태)
+    // 시작 캐릭터 번호를 못 찾으면 번호가 가장 작은 캐릭터를 대신 줌
+    private List<CharacterStat> createStarterStat(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
 
-        List<GameCharacter> allCharacters = characterRepository.findAllByOrderByIdAsc();
-        if (allCharacters.isEmpty()) {
-            throw new RuntimeException("기본 캐릭터가 없습니다.");
-        }
+        GameCharacter gc = characterRepository.findById(starterCharacterId)
+                .orElseGet(() -> {
+                    log.warn("시작 캐릭터 id={} 없음 → 번호가 가장 작은 캐릭터로 지급", starterCharacterId);
+                    return characterRepository.findAllByOrderByIdAsc().stream().findFirst()
+                            .orElseThrow(() -> new RuntimeException("기본 캐릭터가 없습니다."));
+                });
 
-        List<CharacterStat> result = new ArrayList<>();
-        for (int i = 0; i < allCharacters.size(); i++) {
-            GameCharacter gc = allCharacters.get(i);
-            CharacterStat stat = CharacterStat.builder()
-                    .user(user)
-                    .character(gc)
-                    .level(1).exp(0)
-                    .atk(gc.getBaseAtk())
-                    .def(gc.getBaseDef())
-                    .hp(gc.getBaseHp())
-                    .maxHp(gc.getBaseHp())
-                    .doubleAttackChance(gc.getDoubleAttackChance())
-                    .isActive(i == 0)
-                    .build();
-            result.add(characterStatRepository.save(stat));
-        }
-        return result;
+        CharacterStat stat = CharacterStat.builder()
+                .user(user)
+                .character(gc)
+                .level(1).exp(0)
+                .atk(gc.getBaseAtk())
+                .def(gc.getBaseDef())
+                .hp(gc.getBaseHp())
+                .maxHp(gc.getBaseHp())
+                .doubleAttackChance(gc.getDoubleAttackChance())
+                .isActive(true)
+                .build();
+        return new ArrayList<>(List.of(characterStatRepository.save(stat)));
     }
 
     public record BattleLogEntry(
