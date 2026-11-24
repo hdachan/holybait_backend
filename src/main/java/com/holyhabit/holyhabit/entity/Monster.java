@@ -45,6 +45,10 @@ public class Monster {
 
     private String imageKey;
 
+    // 몬스터가 공격할 때 이펙트 (앱 assets/images/effects/{값}, 예: bite). null이면 앱 기본값(발톱 3줄)
+    @Column(name = "attack_effect", length = 50)
+    private String attackEffect;
+
     // 처치 시 드롭되는 캐릭터 (null이면 드롭 없음)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "drop_character_id", nullable = true)

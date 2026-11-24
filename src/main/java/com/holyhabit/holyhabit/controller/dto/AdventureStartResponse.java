@@ -23,6 +23,7 @@ public class AdventureStartResponse {
     private final int monsterAtk;
     private final int monsterDef;
     private final String monsterImageKey;
+    private final String monsterAttackEffect; // 몬스터 공격 이펙트 (null = 앱 기본)
 
     // 플레이어 정보 (배틀 시작 시)
     private final int playerMaxHp;
@@ -43,6 +44,7 @@ public class AdventureStartResponse {
         this.monsterAtk = monster.getAtk();
         this.monsterDef = monster.getDef();
         this.monsterImageKey = monster.getImageKey();
+        this.monsterAttackEffect = monster.getAttackEffect();
         this.playerMaxHp = stat.getMaxHp();
         this.playerAtk = stat.getAtk();
         this.playerDef = stat.getDef();
