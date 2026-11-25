@@ -22,6 +22,7 @@ public class PendingBattleResponse {
     private final int monsterDef;
     private final String monsterImageKey;
     private final String monsterAttackEffect; // 몬스터 공격 이펙트 (null = 앱 기본)
+    private final String playerAttackEffect;  // 내 공격 이펙트 = 가방에서 착용한 것 (null = 앱 기본)
 
     private final int playerMaxHp;
     private final int playerAtk;
@@ -30,7 +31,8 @@ public class PendingBattleResponse {
     private final List<AdventureStartResponse.TurnLog> logs;
 
     public PendingBattleResponse(Battle battle, Monster monster,
-                                  CharacterStat stat, List<BattleLog> logs) {
+                                  CharacterStat stat, List<BattleLog> logs,
+                                  String playerAttackEffect) {
         this.battleId = battle.getId();
         this.result = battle.getResult().name();
         this.monsterName = monster.getName();
@@ -40,6 +42,7 @@ public class PendingBattleResponse {
         this.monsterDef = monster.getDef();
         this.monsterImageKey = monster.getImageKey();
         this.monsterAttackEffect = monster.getAttackEffect();
+        this.playerAttackEffect = playerAttackEffect;
         // 배틀 당시 스탯 (이전 배틀은 기록이 없어 캐릭터의 현재 스탯)
         this.playerMaxHp = battle.getPlayerMaxHp() != null ? battle.getPlayerMaxHp() : stat.getMaxHp();
         this.playerAtk = battle.getPlayerAtk() != null ? battle.getPlayerAtk() : stat.getAtk();

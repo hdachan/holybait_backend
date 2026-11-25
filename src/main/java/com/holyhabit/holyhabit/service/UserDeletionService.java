@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 // 회원 탈퇴 — 이용약관 제10조 "탈퇴 시 계정 정보 및 모든 게임 데이터 삭제"
-// - 운동·루틴·커스텀 운동·걸음·캐릭터·배틀·재화·퀘스트·토큰 즉시 삭제
+// - 운동·루틴·커스텀 운동·걸음·캐릭터·배틀·재화·퀘스트·가방·토큰 즉시 삭제
 // - users 행은 번호만 남기고 개인정보(이메일·닉네임·구글 ID)를 지움
 //   → login_history(접속 로그, 3개월 보관)가 이 행을 참조하기 때문
 //   → 구글 ID가 지워지므로 같은 구글 계정으로 다시 로그인하면 새 계정으로 가입됨
@@ -58,6 +58,7 @@ public class UserDeletionService {
         run("DELETE FROM CurrencyLog cl WHERE cl.user.id = :uid", userId);
         run("DELETE FROM UserCurrency uc WHERE uc.user.id = :uid", userId);
         run("DELETE FROM UserQuest uq WHERE uq.user.id = :uid", userId);
+        run("DELETE FROM UserItem ui WHERE ui.user.id = :uid", userId);
         run("DELETE FROM RefreshToken rt WHERE rt.user.id = :uid", userId);
 
         // 개인정보 지우기 (users 행은 접속 로그 보관용으로 번호만 남김)

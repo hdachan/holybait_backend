@@ -33,6 +33,7 @@ public class AdventureService {
     private final CurrencyLogRepository currencyLogRepository;
     private final CurrencyService currencyService;
     private final QuestService questService;
+    private final ItemService itemService;
 
     private static final Random random = new Random();
 
@@ -187,7 +188,8 @@ public class AdventureService {
                     CharacterStat stat = getBattleStat(userId, battle);
                     List<BattleLog> logs =
                             battleLogRepository.findAllByBattleIdOrderByTurnAsc(battle.getId());
-                    return new PendingBattleResponse(battle, monster, stat, logs);
+                    return new PendingBattleResponse(battle, monster, stat, logs,
+                            itemService.getEquippedEffectKey(userId));
                 });
     }
 
@@ -265,7 +267,8 @@ public class AdventureService {
                     .build());
         }
 
-        return new AdventureStartResponse(battle, monster, stat, calc.logs());
+        return new AdventureStartResponse(battle, monster, stat, calc.logs(),
+                itemService.getEquippedEffectKey(userId));
     }
 
     // 보상 수령
