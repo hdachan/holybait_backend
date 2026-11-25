@@ -29,8 +29,22 @@ public class Exercise {
     @JoinColumn(name = "user_id")
     private User user; // isCustom=true일 때만 값 있음, false면 null
 
+    // 커스텀 운동 "삭제" = 숨기기. 목록에서만 빠지고 예전 기록·루틴에는 그대로 남음 (NULL = 안 숨김)
+    @Column(name = "is_hidden")
+    private Boolean hidden;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    // 커스텀 운동 이름·부위 수정
+    public void update(String name, String target) {
+        this.name = name;
+        this.target = target;
+    }
+
+    public void hide() {
+        this.hidden = true;
+    }
 
     @PrePersist
     void prePersist() {

@@ -54,7 +54,20 @@ public class ExerciseController {
         ));
     }
 
-    // 커스텀 운동 삭제
+    // 커스텀 운동 수정 (이름·부위)
+    @PutMapping("/{exerciseId}")
+    public ResponseEntity<ExerciseResponse> updateCustomExercise(
+            @PathVariable Long exerciseId,
+            @RequestBody ExerciseRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ResponseEntity.ok(new ExerciseResponse(
+                exerciseService.updateCustomExercise(
+                        exerciseId, userDetails.getUserId(), request.getName(), request.getTarget())
+        ));
+    }
+
+    // 커스텀 운동 삭제 (숨기기)
     @DeleteMapping("/{exerciseId}")
     public ResponseEntity<Void> deleteCustomExercise(
             @PathVariable Long exerciseId,

@@ -14,8 +14,6 @@ public class PlanetResponse {
     private final String description;
     private final String imageKey;
     private final String theme;
-    private final String interviewPersonName;
-    private final String interviewPersonJob;
     private final List<StageInfo> stages;
 
     public PlanetResponse(Planet planet, List<PlanetStage> planetStages) {
@@ -24,8 +22,6 @@ public class PlanetResponse {
         this.description = planet.getDescription();
         this.imageKey = planet.getImageKey();
         this.theme = planet.getTheme();
-        this.interviewPersonName = planet.getInterviewPersonName();
-        this.interviewPersonJob = planet.getInterviewPersonJob();
         this.stages = planetStages.stream()
                 .map(ps -> new StageInfo(ps.getStage(), ps.getSortOrder()))
                 .toList();

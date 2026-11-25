@@ -8,15 +8,15 @@ import java.util.List;
 
 public interface ExerciseRepository extends JpaRepository<Exercise, Long> {
 
-    // 앱 제공 운동 + 내 커스텀 운동 전체 조회
-    @Query("SELECT e FROM Exercise e WHERE e.isCustom = false OR e.user.id = :userId")
+    // 앱 제공 운동 + 내 커스텀 운동 전체 조회 (숨긴 운동 제외, 아래도 같음)
+    @Query("SELECT e FROM Exercise e WHERE (e.isCustom = false OR e.user.id = :userId) AND (e.hidden IS NULL OR e.hidden = false)")
     List<Exercise> findAllAvailable(Long userId);
 
     // 카테고리 필터 조회
-    @Query("SELECT e FROM Exercise e WHERE (e.isCustom = false OR e.user.id = :userId) AND e.target = :target")
+    @Query("SELECT e FROM Exercise e WHERE (e.isCustom = false OR e.user.id = :userId) AND (e.hidden IS NULL OR e.hidden = false) AND e.target = :target")
     List<Exercise> findByTarget(Long userId, String target);
 
     // 이름 검색
-    @Query("SELECT e FROM Exercise e WHERE (e.isCustom = false OR e.user.id = :userId) AND e.name LIKE %:keyword%")
+    @Query("SELECT e FROM Exercise e WHERE (e.isCustom = false OR e.user.id = :userId) AND (e.hidden IS NULL OR e.hidden = false) AND e.name LIKE %:keyword%")
     List<Exercise> searchByName(Long userId, String keyword);
 }

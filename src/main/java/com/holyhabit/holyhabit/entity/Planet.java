@@ -30,11 +30,6 @@ public class Planet {
     @Builder.Default
     private boolean isActive = true; // 공개 여부
 
-    // 인터뷰 인물 정보
-    private String interviewPersonName;    // 소방관 김민수
-    private String interviewPersonJob;     // 소방관
-    private String interviewMessage;       // 행성 완성 시 표시될 메시지
-
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
